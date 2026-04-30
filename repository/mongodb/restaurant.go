@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/andre/restaurante/models"
+	"restaurante/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"

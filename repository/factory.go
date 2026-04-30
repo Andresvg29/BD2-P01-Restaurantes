@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	mongoRepo "github.com/andre/restaurante/repository/mongodb"
-	pgRepo "github.com/andre/restaurante/repository/postgres"
+	mongoRepo "restaurante/repository/mongodb"
+	pgRepo "restaurante/repository/postgres"
 
 	_ "github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"

@@ -11,8 +11,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/andre/restaurante/handlers"
-	"github.com/andre/restaurante/repository"
+	"restaurante/handlers"
+	"restaurante/repository"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"

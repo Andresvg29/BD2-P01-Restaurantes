@@ -3,7 +3,7 @@ package repository
 import (
 	"time"
 
-	"github.com/andre/restaurante/models"
+	"restaurante/models"
 )
 
 // define las operaciones sobre usuarios

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/andre/restaurante/models"
-	"github.com/andre/restaurante/repository"
+	"restaurante/models"
+	"restaurante/repository"
 	"github.com/gin-gonic/gin"
 )
 

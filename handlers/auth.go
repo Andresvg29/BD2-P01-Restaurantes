@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/andre/restaurante-api/repository"
+	"restaurante/repository"
 	"github.com/gin-gonic/gin"
 )
 

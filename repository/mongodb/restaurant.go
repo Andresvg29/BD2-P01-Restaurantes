@@ -43,12 +43,12 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	return &models.User{ID: id, Email: email}, nil
 }
 
-func (r *UserRepository) Create(nombre, email, passwordHash string) (string, error) {
+func (r *UserRepository) Create(nombre, email, keycloakID string) (string, error) {
 	doc := bson.M{
 		"_id":           primitive.NewObjectID().Hex(),
 		"nombre":        nombre,
 		"email":         email,
-		"password_hash": passwordHash,
+		"keycloak_id":   keycloakID,
 		"id_rol":        2,
 		"fecha_creacion": time.Now(),
 	}

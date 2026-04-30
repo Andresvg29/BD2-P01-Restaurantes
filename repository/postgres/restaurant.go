@@ -38,13 +38,13 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	return u, nil
 }
 
-func (r *UserRepository) Create(nombre, email, passwordHash string) (string, error) {
+func (r *UserRepository) Create(nombre, email, keycloakID string) (string, error) {
 	var id string
 	err := r.db.QueryRow(
-		`INSERT INTO usuarios (nombre, email, password_hash, id_rol)
+		`INSERT INTO usuarios (nombre, email, keycloak_id, id_rol)
 		 VALUES ($1, $2, $3, (SELECT id FROM roles_usuario WHERE nombre_rol = 'cliente'))
 		 RETURNING id`,
-		nombre, email, passwordHash,
+		nombre, email, keycloakID,
 	).Scan(&id)
 	return id, err
 }
@@ -67,8 +67,8 @@ func (r *UserRepository) Delete(id string) error {
 
 func (r *UserRepository) UpsertFromToken(id, nombre, email string) error {
 	_, err := r.db.Exec(
-		`INSERT INTO usuarios (id, nombre, email, password_hash, id_rol)
-		 VALUES ($1, $2, $3, 'external_auth', (SELECT id FROM roles_usuario WHERE nombre_rol = 'cliente'))
+		`INSERT INTO usuarios (id, nombre, email, keycloak_id, id_rol)
+		 VALUES ($1, $2, $3, $4, (SELECT id FROM roles_usuario WHERE nombre_rol = 'cliente'))
 		 ON CONFLICT (id) DO NOTHING`,
 		id, nombre, email,
 	)

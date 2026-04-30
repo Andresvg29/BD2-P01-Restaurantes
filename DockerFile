@@ -1,0 +1,20 @@
+# Etapa 1: Construccion
+FROM golang:1.23-alpine AS builder
+WORKDIR /app
+RUN apk add --no-cache ca-certificates
+COPY go.mod go.sum* ./
+RUN go mod download
+COPY . .
+# Construimos el binario apuntando a la carpeta api/ 
+RUN go build -o main ./restaurante/api/main.go
+
+# Etapa 2: Ejecucion
+FROM alpine:latest
+WORKDIR /root/
+# Copiamos el binario y el archivo .env
+RUN apk add --no-cache ca-certificates
+COPY --from=builder /app/main .
+COPY --from=builder /app/.env .
+
+EXPOSE 8000
+CMD ["./main"]

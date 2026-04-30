@@ -1,0 +1,47 @@
+services:
+  # Go
+  app:
+    build: .
+    ports:
+      - "${PORT}:${PORT}"
+    environment:
+      - DB_ENGINE=${DB_ENGINE}
+    env_file:
+      - .env
+    depends_on:
+      - db_postgres
+      - db_mongo
+    networks:
+      - restaurante_net
+
+  # Base de Datos PostgreSQL
+  db_postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - restaurante_net
+
+  # Base de Datos MongoDB (Instancia única para pruebas de Fase 1)
+  db_mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - restaurante_net
+
+networks:
+  restaurante_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongo_data:

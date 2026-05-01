@@ -7,7 +7,6 @@ import (
 	"restaurante/models"
 )
 
-
 type UserRepository struct {
 	db *sql.DB
 }
@@ -70,7 +69,7 @@ func (r *UserRepository) UpsertFromToken(id, nombre, email string) error {
 		`INSERT INTO usuarios (id, nombre, email, keycloak_id, id_rol)
 		 VALUES ($1, $2, $3, $4, (SELECT id FROM roles_usuario WHERE nombre_rol = 'cliente'))
 		 ON CONFLICT (id) DO NOTHING`,
-		id, nombre, email,
+		id, nombre, email, id,
 	)
 	return err
 }
@@ -183,7 +182,7 @@ type MenuRepository struct {
 func NewMenuRepository(db *sql.DB) *MenuRepository {
 	return &MenuRepository{db: db}
 }
- 
+
 func (r *MenuRepository) GetByRestaurant(restaurantID string) ([]models.MenuItem, error) {
 	rows, err := r.db.Query(
 		`SELECT id, id_restaurante, nombre, descripcion, precio, esta_disponible
@@ -194,7 +193,7 @@ func (r *MenuRepository) GetByRestaurant(restaurantID string) ([]models.MenuItem
 		return nil, err
 	}
 	defer rows.Close()
- 
+
 	var items []models.MenuItem
 	for rows.Next() {
 		var item models.MenuItem
@@ -206,7 +205,7 @@ func (r *MenuRepository) GetByRestaurant(restaurantID string) ([]models.MenuItem
 	}
 	return items, nil
 }
- 
+
 func (r *MenuRepository) Create(restaurantID, nombre, descripcion string, precio float64) (string, error) {
 	var id string
 	err := r.db.QueryRow(
@@ -215,7 +214,7 @@ func (r *MenuRepository) Create(restaurantID, nombre, descripcion string, precio
 	).Scan(&id)
 	return id, err
 }
- 
+
 func (r *MenuRepository) Update(id, nombre, descripcion string, precio float64, disponible bool) error {
 	_, err := r.db.Exec(
 		`UPDATE platos SET
@@ -228,12 +227,12 @@ func (r *MenuRepository) Update(id, nombre, descripcion string, precio float64, 
 	)
 	return err
 }
- 
+
 func (r *MenuRepository) Delete(id string) error {
 	_, err := r.db.Exec(`DELETE FROM platos WHERE id = $1`, id)
 	return err
 }
- 
+
 func (r *MenuRepository) GetAdminID(platoID string) (string, error) {
 	var adminID string
 	err := r.db.QueryRow(
@@ -248,63 +247,63 @@ func (r *MenuRepository) GetAdminID(platoID string) (string, error) {
 type OrderRepository struct {
 	db *sql.DB
 }
- 
+
 func NewOrderRepository(db *sql.DB) *OrderRepository {
 	return &OrderRepository{db: db}
 }
- 
+
 func (r *OrderRepository) Create(userID, restaurantID string, esRecogida bool, detalles []models.OrderDetailRequest) (*models.Order, error) {
 	var stateID int
 	r.db.QueryRow(`SELECT id FROM estados_pedido WHERE nombre_estado = 'pendiente'`).Scan(&stateID)
- 
+
 	tx, err := r.db.Begin()
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
- 
+
 	var orderID string
 	tx.QueryRow(
 		`INSERT INTO pedidos (id_usuario, id_restaurante, es_recogida, id_estado_pedido, total)
 		 VALUES ($1, $2, $3, $4, 0) RETURNING id`,
 		userID, restaurantID, esRecogida, stateID,
 	).Scan(&orderID)
- 
+
 	var total float64
 	var details []models.OrderDetail
- 
+
 	for _, d := range detalles {
 		var precio float64
 		tx.QueryRow(
 			`SELECT precio FROM platos WHERE id = $1 AND id_restaurante = $2`,
 			d.IdPlato, restaurantID,
 		).Scan(&precio)
- 
+
 		var detailID string
 		tx.QueryRow(
 			`INSERT INTO detalles_pedido (id_pedido, id_plato, cantidad, precio)
 			 VALUES ($1, $2, $3, $4) RETURNING id`,
 			orderID, d.IdPlato, d.Cantidad, precio,
 		).Scan(&detailID)
- 
+
 		total += precio * float64(d.Cantidad)
 		details = append(details, models.OrderDetail{
 			ID: detailID, IdPlato: d.IdPlato, Cantidad: d.Cantidad, Precio: precio,
 		})
 	}
- 
+
 	tx.Exec(`UPDATE pedidos SET total = $1 WHERE id = $2`, total, orderID)
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
- 
+
 	return &models.Order{
 		ID: orderID, IdUsuario: userID, IdRestaurante: restaurantID,
 		EsRecogida: esRecogida, IdEstadoPedido: stateID,
 		Total: total, Detalles: details,
 	}, nil
 }
- 
+
 func (r *OrderRepository) GetByID(orderID string) (*models.Order, error) {
 	order := &models.Order{}
 	err := r.db.QueryRow(
@@ -316,7 +315,7 @@ func (r *OrderRepository) GetByID(orderID string) (*models.Order, error) {
 	if err != nil {
 		return nil, err
 	}
- 
+
 	rows, err := r.db.Query(
 		`SELECT id, id_plato, cantidad, precio FROM detalles_pedido WHERE id_pedido = $1`, orderID,
 	)
@@ -324,7 +323,7 @@ func (r *OrderRepository) GetByID(orderID string) (*models.Order, error) {
 		return nil, err
 	}
 	defer rows.Close()
- 
+
 	for rows.Next() {
 		var d models.OrderDetail
 		rows.Scan(&d.ID, &d.IdPlato, &d.Cantidad, &d.Precio)

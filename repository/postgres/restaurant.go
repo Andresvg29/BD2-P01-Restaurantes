@@ -64,13 +64,19 @@ func (r *UserRepository) Delete(id string) error {
 	return err
 }
 
-func (r *UserRepository) UpsertFromToken(id, nombre, email string) error {
-	_, err := r.db.Exec(
+func (r *UserRepository) UpsertFromToken(id, nombre, email string, isAdmin bool) error {
+	idRol := 2
+	if isAdmin {
+		idRol = 1
+	}
+	query :=
 		`INSERT INTO usuarios (id, nombre, email, keycloak_id, id_rol)
-		 VALUES ($1, $2, $3, $4, (SELECT id FROM roles_usuario WHERE nombre_rol = 'cliente'))
-		 ON CONFLICT (id) DO NOTHING`,
-		id, nombre, email, id,
-	)
+		 VALUES ($1, $2, $3, $4, $5)
+		 ON CONFLICT (id) DO UPDATE SET
+			nombre = EXCLUDED.nombre,
+			email  = EXCLUDED.email,
+			id_rol = EXCLUDED.id_rol`
+	_, err := r.db.Exec(query, id, nombre, email, id, idRol)
 	return err
 }
 

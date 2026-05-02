@@ -172,13 +172,14 @@ func (c *Client) RegisterUser(ctx context.Context, nombre, apellido, email, pass
 }
 
 // verifica la firma del JWT con las claves publicas de Keycloak
-func (c *Client) DecodeToken(ctx context.Context, tokenString string) (userID, userName, userEmail string, err error) {
+func (c *Client) DecodeToken(ctx context.Context, tokenString string) (userID, userName, userEmail string, roles []string, err error) {
 	jwtToken, mapClaims, err := c.kc.DecodeAccessToken(ctx, tokenString, c.realm)
 	if err != nil || !jwtToken.Valid {
-		return "", "", "", fmt.Errorf("token inválido: %w", err)
+		return "", "", "", nil, fmt.Errorf("token inválido: %w", err)
 	}
 
 	claims := *mapClaims
+	roles = ExtractRoles(claims)
 
 	// "sub" es el UUID del usuario en Keycloak
 	if sub, ok := claims["sub"].(string); ok {
@@ -194,10 +195,10 @@ func (c *Client) DecodeToken(ctx context.Context, tokenString string) (userID, u
 	}
 
 	if userID == "" {
-		return "", "", "", fmt.Errorf("claim 'sub' no encontrado en el token")
+		return "", "", "", nil, fmt.Errorf("claim 'sub' no encontrado en el token")
 	}
 
-	return userID, userName, userEmail, nil
+	return userID, userName, userEmail, roles, nil
 }
 
 // lee los roles del realm desde los claims del JWT

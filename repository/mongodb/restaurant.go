@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"restaurante/models"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-
 
 type UserRepository struct {
 	col *mongo.Collection
@@ -26,11 +26,20 @@ func (r *UserRepository) GetByID(id string) (*models.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &models.User{
-		ID:     id,
-		Nombre: result["nombre"].(string),
-		Email:  result["email"].(string),
-	}, nil
+	user := &models.User{
+		ID:            id,
+		Nombre:        result["nombre"].(string),
+		Email:         result["email"].(string),
+		IdRol:         toInt(result["id_rol"]),
+		FechaCreacion: result["fecha_creacion"].(primitive.DateTime).Time(),
+	}
+	if fecha, ok := result["fecha_creacion"].(primitive.DateTime); ok {
+		user.FechaCreacion = fecha.Time()
+	} else {
+		// Si es nil o no es el tipo correcto, asignamos una fecha por defecto
+		user.FechaCreacion = time.Time{}
+	}
+	return user, nil
 }
 
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
@@ -45,11 +54,11 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 
 func (r *UserRepository) Create(nombre, email, keycloakID string) (string, error) {
 	doc := bson.M{
-		"_id":           primitive.NewObjectID().Hex(),
-		"nombre":        nombre,
-		"email":         email,
-		"keycloak_id":   keycloakID,
-		"id_rol":        2,
+		"_id":            primitive.NewObjectID().Hex(),
+		"nombre":         nombre,
+		"email":          email,
+		"keycloak_id":    keycloakID,
+		"id_rol":         2,
 		"fecha_creacion": time.Now(),
 	}
 	res, err := r.col.InsertOne(context.Background(), doc)
@@ -76,20 +85,29 @@ func (r *UserRepository) Delete(id string) error {
 	return err
 }
 
-func (r *UserRepository) UpsertFromToken(id, nombre, email string) error {
+func (r *UserRepository) UpsertFromToken(id, nombre, email string, isAdmin bool) error {
+	idRol := 2
+	if isAdmin {
+		idRol = 1
+	}
 	_, err := r.col.UpdateOne(
 		context.Background(),
 		bson.M{"_id": id},
-		bson.M{"$setOnInsert": bson.M{
-			"_id":    id,
-			"nombre": nombre,
-			"email":  email,
-			"id_rol": 2,
-		}},
+		bson.M{
+			"$set": bson.M{
+				"nombre": nombre,
+				"email":  email,
+				"id_rol": idRol,
+			},
+			"$setOnInsert": bson.M{
+				"_id":            id,
+				"fecha_creacion": time.Now(),
+			},
+		},
+		options.Update().SetUpsert(true),
 	)
 	return err
 }
-
 
 type RestaurantRepository struct {
 	col *mongo.Collection
@@ -114,6 +132,7 @@ func (r *RestaurantRepository) List() ([]models.Restaurant, error) {
 			ID:              doc["_id"].(string),
 			Nombre:          doc["nombre"].(string),
 			Direccion:       doc["direccion"].(string),
+			Telefono:        doc["telefono"].(string),
 			IdAdministrador: doc["id_administrador"].(string),
 			CapacidadTotal:  int(doc["capacidad_total"].(int32)),
 		})
@@ -131,6 +150,7 @@ func (r *RestaurantRepository) GetByID(id string) (*models.Restaurant, error) {
 		ID:              id,
 		Nombre:          doc["nombre"].(string),
 		Direccion:       doc["direccion"].(string),
+		Telefono:        doc["telefono"].(string),
 		IdAdministrador: doc["id_administrador"].(string),
 		CapacidadTotal:  int(doc["capacidad_total"].(int32)),
 	}, nil
@@ -149,15 +169,14 @@ func (r *RestaurantRepository) Create(nombre, direccion, telefono, adminID strin
 	return id, err
 }
 
-
 type MenuRepository struct {
-	platosCol      *mongo.Collection
+	platosCol       *mongo.Collection
 	restaurantesCol *mongo.Collection
 }
 
 func NewMenuRepository(db *mongo.Database) *MenuRepository {
 	return &MenuRepository{
-		platosCol:      db.Collection("platos"),
+		platosCol:       db.Collection("platos"),
 		restaurantesCol: db.Collection("restaurantes"),
 	}
 }
@@ -230,15 +249,14 @@ func (r *MenuRepository) GetAdminID(platoID string) (string, error) {
 	return restaurant["id_administrador"].(string), nil
 }
 
-
 type ReservationRepository struct {
-	col            *mongo.Collection
+	col             *mongo.Collection
 	restaurantesCol *mongo.Collection
 }
 
 func NewReservationRepository(db *mongo.Database) *ReservationRepository {
 	return &ReservationRepository{
-		col:            db.Collection("reservas"),
+		col:             db.Collection("reservas"),
 		restaurantesCol: db.Collection("restaurantes"),
 	}
 }
@@ -350,4 +368,22 @@ func (r *OrderRepository) GetByID(orderID string) (*models.Order, error) {
 		Total:          doc["total"].(float64),
 	}
 	return order, nil
+}
+
+func toInt(v interface{}) int {
+	if v == nil {
+		return 0
+	}
+	switch i := v.(type) {
+	case int:
+		return i
+	case int32:
+		return int(i)
+	case int64:
+		return int(i)
+	case float64:
+		return int(i)
+	default:
+		return 0
+	}
 }

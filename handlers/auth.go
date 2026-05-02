@@ -59,7 +59,7 @@ func RegisterUser(kc *keycloak.Client, users repository.UserRepository) gin.Hand
 		}
 
 		// sincronizar en la BD local
-		if err := users.UpsertFromToken(keycloakID, req.Nombre, req.Email); err != nil {
+		if err := users.UpsertFromToken(keycloakID, req.Nombre, req.Email, false); err != nil {
 			// el usuario existe en Keycloak aunque falle la BD local
 			c.JSON(http.StatusCreated, gin.H{
 				"id":      keycloakID,

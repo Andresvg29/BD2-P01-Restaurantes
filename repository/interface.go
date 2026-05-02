@@ -13,7 +13,7 @@ type UserRepository interface {
 	Create(nombre, email, passwordHash string) (string, error)
 	Update(id, nombre, email string) error
 	Delete(id string) error
-	UpsertFromToken(id, nombre, email string) error //sincroniza un usuario que viene del JWT de Keycloak
+	UpsertFromToken(id, nombre, email string, isAdmin bool) error //sincroniza un usuario que viene del JWT de Keycloak
 }
 
 // define las operaciones sobre restaurantes
@@ -32,7 +32,7 @@ type MenuRepository interface {
 	GetAdminID(platoID string) (string, error) //devuelve el id_administrador del restaurante al que pertenece el plato
 }
 
-//define las operaciones sobre reservas
+// define las operaciones sobre reservas
 type ReservationRepository interface {
 	Create(userID, restaurantID string, fecha time.Time, personas int) (*models.Reservation, error)
 	GetOwnerID(reservationID string) (string, error)

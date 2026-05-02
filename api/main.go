@@ -17,7 +17,7 @@ import (
 func main() {
 	_ = godotenv.Load()
 
-	// ── Repositorios (Postgres o MongoDB según DB_ENGINE) ──────────────────
+	//(Postgres o MongoDB segun DB_ENGINE)
 	repos, cleanup, err := repository.NewRepos()
 	if err != nil {
 		log.Fatalf("Error iniciando repositorios: %v", err)
@@ -25,7 +25,6 @@ func main() {
 	defer cleanup()
 	log.Printf("Motor de BD: %s", os.Getenv("DB_ENGINE"))
 
-	// ── Keycloak: configurar realm, cliente y roles al arrancar ───────────
 	kc := keycloak.New()
 	if err := kc.Setup(context.Background()); err != nil {
 		log.Fatalf("Error configurando Keycloak: %v", err)
@@ -34,25 +33,28 @@ func main() {
 	// ── Router ────────────────────────────────────────────────────────────
 	router := gin.Default()
 
-	// Rutas públicas
+	// Rutas publicas
 	router.GET("/restaurants", handlers.ListRestaurants(repos.Restaurant))
 	router.GET("/menus/:id", handlers.GetMenu(repos.Menu))
 	router.POST("/auth/login", handlers.Login(kc))
 	router.POST("/auth/register", handlers.RegisterUser(kc, repos.User))
 
-	// Rutas protegidas: el middleware valida el JWT contra Keycloak
+	// Rutas protegidas el middleware valida el JWT contra Keycloak
 	protected := router.Group("")
 	protected.Use(middleware.Auth(kc, repos.User))
+	adminOnly := protected.Group("")
+	adminOnly.Use(middleware.RequireAdmin())
+	{
+		adminOnly.POST("/restaurants", handlers.CreateRestaurant(repos.Restaurant))
+
+		adminOnly.POST("/menus", handlers.CreateMenu(repos.Menu, repos.Restaurant))
+		adminOnly.PUT("/menus/:id", handlers.UpdateMenu(repos.Menu))
+		adminOnly.DELETE("/menus/:id", handlers.DeleteMenu(repos.Menu))
+	}
 	{
 		protected.GET("/users/me", handlers.GetCurrentUser(repos.User))
 		protected.PUT("/users/:id", handlers.UpdateUser(repos.User))
 		protected.DELETE("/users/:id", handlers.DeleteUser(repos.User))
-
-		protected.POST("/restaurants", handlers.CreateRestaurant(repos.Restaurant))
-
-		protected.POST("/menus", handlers.CreateMenu(repos.Menu, repos.Restaurant))
-		protected.PUT("/menus/:id", handlers.UpdateMenu(repos.Menu))
-		protected.DELETE("/menus/:id", handlers.DeleteMenu(repos.Menu))
 
 		protected.POST("/reservations", handlers.CreateReservation(repos.Reservation))
 		protected.DELETE("/reservations/:id", handlers.CancelReservation(repos.Reservation))

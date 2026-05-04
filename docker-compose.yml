@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - postgres_data:/var/lib/postgresql/data       
+      - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "${POSTGRES_PORT}:5432"
@@ -33,7 +33,7 @@ services:
       timeout: 5s
       retries: 5
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0         
+    image: quay.io/keycloak/keycloak:24.0
     restart: always
     command: start-dev
     environment:
@@ -52,11 +52,11 @@ services:
   api:
     build: .
     restart: always
-    env_file: .env                                 
+    env_file: .env
     environment:
       POSTGRES_HOST: db
       KEYCLOAK_URL: http://keycloak:8080
-      MONGO_URI: mongodb://mongo:27017
+      MONGO_URI: mongodb://mongo1:27017,mongo2:27018,mongo3:27019/?replicaSet=rs0
     ports:
       - "${PORT}:8000"
     depends_on:
@@ -65,18 +65,42 @@ services:
       keycloak:
         condition: service_started
 
-  mongo:
+  mongo1:
     image: mongo:7
     restart: always
-    volumes:
-      - mongo_data:/data/db
+    container_name: mongo1
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
     ports:
       - "27017:27017"
+    volumes:
+      - mongo1_data:/data/db
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - mongo-cluster
+
+  mongo2:
+    image: mongo:7
+    restart: always
+    container_name: mongo2
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27018"]
+    volumes:
+      - mongo2_data:/data/db
+    networks:
+      - mongo-cluster
+
+  mongo3:
+    image: mongo:7
+    restart: always
+    container_name: mongo3
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27019"]
+    volumes:
+      - mongo3_data:/data/db
+    networks:
+      - mongo-cluster
 
   adminer:
     image: adminer
@@ -89,4 +113,10 @@ services:
 volumes:
   postgres_data:
   keycloak_db_data:
-  mongo_data:
+  mongo1_data:
+  mongo2_data:
+  mongo3_data:
+
+networks:
+  mongo-cluster:
+    driver: bridge

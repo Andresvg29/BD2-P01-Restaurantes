@@ -59,14 +59,9 @@ services:
     env_file: .env
     environment:
       POSTGRES_HOST: db
-<<<<<<< HEAD
       KEYCLOAK_URL: ${KEYCLOAK_URL}
       MONGO_URI: ${MONGO_URI}
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
-=======
-      KEYCLOAK_URL: http://keycloak:8080
-      MONGO_URI: mongodb://mongos:27017
->>>>>>> 7ceefecce64be30a7b05e2ad8689b4ce9e9b589e
     ports:
       - "${PORT}:8000"
     depends_on:
@@ -74,16 +69,13 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_started
-<<<<<<< HEAD
       elasticsearch:
         condition: service_healthy
-=======
       mongos:
         condition: service_started
     networks:
       - default
       - mongo-cluster
->>>>>>> 7ceefecce64be30a7b05e2ad8689b4ce9e9b589e
 
   configsvr:
     image: mongo:7

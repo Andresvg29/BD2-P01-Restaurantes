@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - postgres_data:/var/lib/postgresql/data       
+      - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "${POSTGRES_PORT}:5432"
@@ -35,7 +35,7 @@ services:
       timeout: 5s
       retries: 5
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0         
+    image: quay.io/keycloak/keycloak:24.0
     restart: always
     container_name: keycloak
     command: start-dev
@@ -56,12 +56,17 @@ services:
     build: .
     container_name: api
     restart: always
-    env_file: .env                                 
+    env_file: .env
     environment:
       POSTGRES_HOST: db
+<<<<<<< HEAD
       KEYCLOAK_URL: ${KEYCLOAK_URL}
       MONGO_URI: ${MONGO_URI}
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
+=======
+      KEYCLOAK_URL: http://keycloak:8080
+      MONGO_URI: mongodb://mongos:27017
+>>>>>>> 7ceefecce64be30a7b05e2ad8689b4ce9e9b589e
     ports:
       - "${PORT}:8000"
     depends_on:
@@ -69,22 +74,179 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_started
+<<<<<<< HEAD
       elasticsearch:
         condition: service_healthy
+=======
+      mongos:
+        condition: service_started
+    networks:
+      - default
+      - mongo-cluster
+>>>>>>> 7ceefecce64be30a7b05e2ad8689b4ce9e9b589e
 
-  mongo:
+  configsvr:
     image: mongo:7
     restart: always
-    container_name: mongo
+    container_name: configsvr
+    command:
+      [
+        "mongod",
+        "--configsvr",
+        "--replSet",
+        "cfgReplSet",
+        "--bind_ip_all",
+        "--port",
+        "27019",
+      ]
     volumes:
-      - mongo_data:/data/db
-    ports:
-      - "27017:27017"
+      - configsvr_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--port",
+          "27019",
+          "--eval",
+          "db.adminCommand('ping')",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - mongo-cluster
+
+  mongos:
+    image: mongo:7
+    restart: always
+    container_name: mongos
+    command: [
+        "mongos",
+        "--bind_ip_all",
+        "--configdb",
+        "cfgReplSet/configsvr:27019",
+        "--port",
+        "27017",
+      ] # Corregir el nombre del replicaset si es cfgReplSet
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--port",
+          "27017",
+          "--eval",
+          "db.adminCommand('ping')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - configsvr
+      - mongo1
+      - mongo2
+      - mongo3
+    networks:
+      - mongo-cluster
+
+  mongo1:
+    image: mongo:7
+    restart: always
+    container_name: mongo1
+    command:
+      [
+        "mongod",
+        "--shardsvr",
+        "--replSet",
+        "shard0",
+        "--bind_ip_all",
+        "--port",
+        "27018",
+      ]
+    volumes:
+      - mongo1_data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--port",
+          "27018",
+          "--eval",
+          "db.adminCommand('ping')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mongo-cluster
+
+  mongo2:
+    image: mongo:7
+    restart: always
+    container_name: mongo2
+    command:
+      [
+        "mongod",
+        "--shardsvr",
+        "--replSet",
+        "shard0",
+        "--bind_ip_all",
+        "--port",
+        "27018",
+      ]
+    volumes:
+      - mongo2_data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--port",
+          "27018",
+          "--eval",
+          "db.adminCommand('ping')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mongo-cluster
+
+  mongo3:
+    image: mongo:7
+    restart: always
+    container_name: mongo3
+    command:
+      [
+        "mongod",
+        "--shardsvr",
+        "--replSet",
+        "shard0",
+        "--bind_ip_all",
+        "--port",
+        "27018",
+      ]
+    volumes:
+      - mongo3_data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--port",
+          "27018",
+          "--eval",
+          "db.adminCommand('ping')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mongo-cluster
 
 #elasticsearch
   elasticsearch:
@@ -129,4 +291,11 @@ services:
 volumes:
   postgres_data:
   keycloak_db_data:
-  mongo_data:
+  mongo1_data:
+  mongo2_data:
+  mongo3_data:
+  configsvr_data:
+
+networks:
+  mongo-cluster:
+    driver: bridge

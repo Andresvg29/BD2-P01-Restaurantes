@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    container_name: db
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -20,6 +21,7 @@ services:
   # base de datos separada para Keycloak
   keycloak-db:
     image: postgres:16-alpine
+    container_name: keycloak-db
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -35,6 +37,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
     restart: always
+    container_name: keycloak
     command: start-dev
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
@@ -51,6 +54,7 @@ services:
         condition: service_healthy
   api:
     build: .
+    container_name: api
     restart: always
     env_file: .env
     environment:
@@ -236,6 +240,7 @@ services:
   adminer:
     image: adminer
     restart: always
+    container_name: adminer
     ports:
       - "8081:8080"
     depends_on:

@@ -43,7 +43,7 @@ func SearchByCategory(c *gin.Context) {
 	esQuery := map[string]interface{}{
 		"query": map[string]interface{}{
 			"term": map[string]interface{}{
-				"categoria": strings.ToLower(categoria),
+				"categoria": categoria,
 			},
 		},
 	}

@@ -25,9 +25,10 @@ type RestaurantRepository interface {
 
 // define las operaciones sobre platos / menu
 type MenuRepository interface {
+	List() ([]models.MenuItem, error)
 	GetByRestaurant(restaurantID string) ([]models.MenuItem, error)
-	Create(restaurantID, nombre, descripcion string, precio float64) (string, error)
-	Update(id, nombre, descripcion string, precio float64, disponible bool) error
+	Create(restaurantID, nombre, descripcion string, precio float64, categoria string) (string, error)
+	Update(id, nombre, descripcion string, precio float64, disponible bool, categoria string) error
 	Delete(id string) error
 	GetAdminID(platoID string) (string, error) //devuelve el id_administrador del restaurante al que pertenece el plato
 }

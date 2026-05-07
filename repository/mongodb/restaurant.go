@@ -181,6 +181,32 @@ func NewMenuRepository(db *mongo.Database) *MenuRepository {
 	}
 }
 
+func (r *MenuRepository) List() ([]models.MenuItem, error) {
+	cursor, err := r.platosCol.Find(context.Background(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.Background())
+
+	var items []models.MenuItem
+	for cursor.Next(context.Background()) {
+		var doc bson.M
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, err
+		}
+		items = append(items, models.MenuItem{
+			ID:             doc["_id"].(string),
+			IdRestaurante:  doc["id_restaurante"].(string),
+			Nombre:         doc["nombre"].(string),
+			Descripcion:    doc["descripcion"].(string),
+			Precio:         doc["precio"].(float64),
+			EstaDisponible: doc["esta_disponible"].(bool),
+			Categoria:      doc["categoria"].(string),
+		})
+	}
+	return items, nil
+}
+
 func (r *MenuRepository) GetByRestaurant(restaurantID string) ([]models.MenuItem, error) {
 	cursor, err := r.platosCol.Find(context.Background(), bson.M{"id_restaurante": restaurantID})
 	if err != nil {
@@ -196,13 +222,16 @@ func (r *MenuRepository) GetByRestaurant(restaurantID string) ([]models.MenuItem
 			ID:             doc["_id"].(string),
 			IdRestaurante:  restaurantID,
 			Nombre:         doc["nombre"].(string),
+			Descripcion:    doc["descripcion"].(string),
+			Precio:         doc["precio"].(float64),
 			EstaDisponible: doc["esta_disponible"].(bool),
+			Categoria:      doc["categoria"].(string),
 		})
 	}
 	return items, nil
 }
 
-func (r *MenuRepository) Create(restaurantID, nombre, descripcion string, precio float64) (string, error) {
+func (r *MenuRepository) Create(restaurantID, nombre, descripcion string, precio float64, categoria string) (string, error) {
 	id := primitive.NewObjectID().Hex()
 	_, err := r.platosCol.InsertOne(context.Background(), bson.M{
 		"_id":             id,
@@ -211,11 +240,12 @@ func (r *MenuRepository) Create(restaurantID, nombre, descripcion string, precio
 		"descripcion":     descripcion,
 		"precio":          precio,
 		"esta_disponible": true,
+		"categoria":       categoria,
 	})
 	return id, err
 }
 
-func (r *MenuRepository) Update(id, nombre, descripcion string, precio float64, disponible bool) error {
+func (r *MenuRepository) Update(id, nombre, descripcion string, precio float64, disponible bool, categoria string) error {
 	update := bson.M{"esta_disponible": disponible}
 	if nombre != "" {
 		update["nombre"] = nombre
@@ -225,6 +255,9 @@ func (r *MenuRepository) Update(id, nombre, descripcion string, precio float64, 
 	}
 	if precio > 0 {
 		update["precio"] = precio
+	}
+	if categoria != "" {
+		update["categoria"] = categoria
 	}
 	_, err := r.platosCol.UpdateOne(context.Background(), bson.M{"_id": id}, bson.M{"$set": update})
 	return err

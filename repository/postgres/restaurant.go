@@ -65,18 +65,20 @@ func (r *UserRepository) Delete(id string) error {
 }
 
 func (r *UserRepository) UpsertFromToken(id, nombre, email string, isAdmin bool) error {
-	idRol := 2
+	rolID := 2 // Por defecto cliente
 	if isAdmin {
-		idRol = 1
+		rolID = 1 // Administrador
 	}
-	query :=
-		`INSERT INTO usuarios (id, nombre, email, keycloak_id, id_rol)
-		 VALUES ($1, $2, $3, $4, $5)
-		 ON CONFLICT (id) DO UPDATE SET
-			nombre = EXCLUDED.nombre,
-			email  = EXCLUDED.email,
-			id_rol = EXCLUDED.id_rol`
-	_, err := r.db.Exec(query, id, nombre, email, id, idRol)
+
+	query := `
+    INSERT INTO usuarios (id, nombre, email, keycloak_id, id_rol)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (id) DO UPDATE 
+    SET nombre = $2, email = $3, id_rol = $5
+`
+
+	// Ejecución con solo 4 argumentos (CAUSA DEL ERROR)
+	_, err := r.db.Exec(query, id, nombre, email, id, rolID)
 	return err
 }
 

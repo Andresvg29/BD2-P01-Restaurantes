@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS platos (
     descripcion TEXT,
     precio DECIMAL(10, 2) NOT NULL CHECK (precio >= 0),
     esta_disponible BOOLEAN DEFAULT TRUE,
-    categoria VARCHAR(50), DEFAULT 'general',
+    categoria VARCHAR(50) DEFAULT 'general',
     CONSTRAINT fk_restaurante_plato FOREIGN KEY (id_restaurante) REFERENCES restaurantes(id) ON DELETE CASCADE
 );
 
@@ -87,6 +87,6 @@ CREATE TABLE IF NOT EXISTS detalles_pedido (
     CONSTRAINT fk_plato_detalle FOREIGN KEY (id_plato) REFERENCES platos(id)
 );
 
-INSERT INTO roles_usuario (nombre_rol) VALUES ('administrador'), ('cliente') ON CONFLICT DO NOTHING;
+INSERT INTO roles_usuario (id, nombre_rol) VALUES (1, 'administrador'), (2, 'cliente') ON CONFLICT DO NOTHING;
 INSERT INTO estados_reserva (nombre_estado) VALUES ('pendiente'), ('confirmada'), ('cancelada') ON CONFLICT DO NOTHING;
 INSERT INTO estados_pedido (nombre_estado) VALUES ('pendiente'), ('en_preparacion'), ('completado'), ('entregado') ON CONFLICT DO NOTHING;

@@ -18,7 +18,7 @@ import (
 func main() {
 	_ = godotenv.Load()
 
-	//(Postgres o MongoDB segun DB_ENGINE)
+	// Postgres o MongoDB segun el engine
 	repos, cleanup, err := repository.NewRepos()
 	if err != nil {
 		log.Fatalf("Error iniciando repositorios: %v", err)
@@ -26,16 +26,17 @@ func main() {
 	defer cleanup()
 	log.Printf("Motor de BD: %s", os.Getenv("DB_ENGINE"))
 
-	//eslastic
+	// ElasticSearch
 	esUrl := os.Getenv("ELASTICSEARCH_URL")
 	elasticsearch.InitClient(esUrl)
-	//keycloak
+
+	// Keycloak
 	kc := keycloak.New()
 	if err := kc.Setup(context.Background()); err != nil {
 		log.Fatalf("Error configurando Keycloak: %v", err)
 	}
 
-	// ── Router ────────────────────────────────────────────────────────────
+	// router
 	router := gin.Default()
 
 	// Rutas publicas
@@ -44,26 +45,19 @@ func main() {
 	router.POST("/auth/login", handlers.Login(kc))
 	router.POST("/auth/register", handlers.RegisterUser(kc, repos.User))
 
-	//rutas de busqueda
-	searchGroup := router.Group("/search")
-	{
-		searchGroup.GET("/products", handlers.SearchProducts)
-		searchGroup.GET("/products/category/:categoria", handlers.SearchByCategory)
-		searchGroup.POST("/reindex", handlers.ReindexSearch(repos.Menu))
-	}
-
-	// Rutas protegidas el middleware valida el JWT contra Keycloak
+	// admin
 	protected := router.Group("")
 	protected.Use(middleware.Auth(kc, repos.User))
 	adminOnly := protected.Group("")
 	adminOnly.Use(middleware.RequireAdmin())
 	{
 		adminOnly.POST("/restaurants", handlers.CreateRestaurant(repos.Restaurant))
-
 		adminOnly.POST("/menus", handlers.CreateMenu(repos.Menu, repos.Restaurant))
 		adminOnly.PUT("/menus/:id", handlers.UpdateMenu(repos.Menu))
 		adminOnly.DELETE("/menus/:id", handlers.DeleteMenu(repos.Menu))
 	}
+
+	// Rutas protegidas para autenticados
 	{
 		protected.GET("/users/me", handlers.GetCurrentUser(repos.User))
 		protected.PUT("/users/:id", handlers.UpdateUser(repos.User))

@@ -31,7 +31,6 @@ func NewRepos() (*Repos, func(), error) {
 		engine = "postgres" // postgres default sino se coloca nada en la env
 	}
 
-	// Inicializar Redis (opcional pero recomendado)
 	var redisClient *RedisClient
 	var redisErr error
 	enableRedis := os.Getenv("ENABLE_REDIS")

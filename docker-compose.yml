@@ -18,7 +18,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # base de datos separada para Keycloak
   keycloak-db:
     image: postgres:16-alpine
     container_name: keycloak-db
@@ -34,6 +33,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
     restart: always
@@ -52,6 +52,7 @@ services:
     depends_on:
       keycloak-db:
         condition: service_healthy
+
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -67,9 +68,11 @@ services:
       timeout: 5s
       retries: 5
 
+  # api principal
   api:
-    build: .
-    container_name: api
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: always
     env_file: .env
     environment:
@@ -79,8 +82,8 @@ services:
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-    ports:
-      - "${PORT}:8000"
+    expose:
+      - "8000"      
     depends_on:
       db:
         condition: service_healthy
@@ -96,32 +99,49 @@ services:
       - default
       - mongo-cluster
 
+  # microservicio busqueda
+  search:
+    build:
+      context: .
+      dockerfile: Dockerfile.search
+    restart: always
+    env_file: .env
+    environment:
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
+      SEARCH_PORT: 8001
+    expose:
+      - "8001"       #
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - default
+
+  # Nginx 
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: always
+    ports:
+      - "80:80"      
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - search
+    networks:
+      - default
+
+  # ── MongoDB sharding ───────────────────────────────────────────────────────
   configsvr:
     image: mongo:7
     restart: always
     container_name: configsvr
-    command:
-      [
-        "mongod",
-        "--configsvr",
-        "--replSet",
-        "cfgReplSet",
-        "--bind_ip_all",
-        "--port",
-        "27019",
-      ]
+    command: ["mongod", "--configsvr", "--replSet", "cfgReplSet", "--bind_ip_all", "--port", "27019"]
     volumes:
       - configsvr_data:/data/db
     healthcheck:
-      test:
-        [
-          "CMD",
-          "mongosh",
-          "--port",
-          "27019",
-          "--eval",
-          "db.adminCommand('ping')",
-        ]
+      test: ["CMD", "mongosh", "--port", "27019", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -132,26 +152,11 @@ services:
     image: mongo:7
     restart: always
     container_name: mongos
-    command: [
-        "mongos",
-        "--bind_ip_all",
-        "--configdb",
-        "cfgReplSet/configsvr:27019",
-        "--port",
-        "27017",
-      ] # Corregir el nombre del replicaset si es cfgReplSet
+    command: ["mongos", "--bind_ip_all", "--configdb", "cfgReplSet/configsvr:27019", "--port", "27017"]
     ports:
       - "27017:27017"
     healthcheck:
-      test:
-        [
-          "CMD",
-          "mongosh",
-          "--port",
-          "27017",
-          "--eval",
-          "db.adminCommand('ping')",
-        ]
+      test: ["CMD", "mongosh", "--port", "27017", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -167,28 +172,11 @@ services:
     image: mongo:7
     restart: always
     container_name: mongo1
-    command:
-      [
-        "mongod",
-        "--shardsvr",
-        "--replSet",
-        "shard0",
-        "--bind_ip_all",
-        "--port",
-        "27018",
-      ]
+    command: ["mongod", "--shardsvr", "--replSet", "shard0", "--bind_ip_all", "--port", "27018"]
     volumes:
       - mongo1_data:/data/db
     healthcheck:
-      test:
-        [
-          "CMD",
-          "mongosh",
-          "--port",
-          "27018",
-          "--eval",
-          "db.adminCommand('ping')",
-        ]
+      test: ["CMD", "mongosh", "--port", "27018", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -199,28 +187,11 @@ services:
     image: mongo:7
     restart: always
     container_name: mongo2
-    command:
-      [
-        "mongod",
-        "--shardsvr",
-        "--replSet",
-        "shard0",
-        "--bind_ip_all",
-        "--port",
-        "27018",
-      ]
+    command: ["mongod", "--shardsvr", "--replSet", "shard0", "--bind_ip_all", "--port", "27018"]
     volumes:
       - mongo2_data:/data/db
     healthcheck:
-      test:
-        [
-          "CMD",
-          "mongosh",
-          "--port",
-          "27018",
-          "--eval",
-          "db.adminCommand('ping')",
-        ]
+      test: ["CMD", "mongosh", "--port", "27018", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -231,43 +202,26 @@ services:
     image: mongo:7
     restart: always
     container_name: mongo3
-    command:
-      [
-        "mongod",
-        "--shardsvr",
-        "--replSet",
-        "shard0",
-        "--bind_ip_all",
-        "--port",
-        "27018",
-      ]
+    command: ["mongod", "--shardsvr", "--replSet", "shard0", "--bind_ip_all", "--port", "27018"]
     volumes:
       - mongo3_data:/data/db
     healthcheck:
-      test:
-        [
-          "CMD",
-          "mongosh",
-          "--port",
-          "27018",
-          "--eval",
-          "db.adminCommand('ping')",
-        ]
+      test: ["CMD", "mongosh", "--port", "27018", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - mongo-cluster
 
-#elasticsearch
+  # ElasticSearch  Kibana
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
     container_name: elasticsearch
     restart: always
     environment:
-      - discovery.type=single-node          # modo standalone, sin cluster
-      - xpack.security.enabled=false        # sin TLS/auth para desarrollo
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m     # 
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     ports:
@@ -277,13 +231,13 @@ services:
       interval: 15s
       timeout: 10s
       retries: 10
-#kibana 
+
   kibana:
-    image: docker.elastic.co/kibana/kibana:8.13.0   # misma versión que ES
+    image: docker.elastic.co/kibana/kibana:8.13.0
     container_name: kibana
     restart: always
     environment:
-      - ${ELASTICSEARCH_URL}
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200   
     ports:
       - "5601:5601"
     depends_on:

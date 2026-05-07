@@ -1,5 +1,7 @@
 package handlers
 
+//este handlers pertecene al microservicio de busqueda, independiente de la bd y se usa con ES unicamente
+
 import (
 	"context"
 	"encoding/json"

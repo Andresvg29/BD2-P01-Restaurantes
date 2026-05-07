@@ -1,16 +1,17 @@
 # Etapa 1: Construccion
-FROM golang:1.24 AS builder
+FROM --platform=linux/amd64 golang:1.24 AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o server ./api/
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server ./api/
 
 # Etapa 2: Ejecucion
 FROM alpine:3.19
 WORKDIR /app
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /app/server .
+RUN chmod +x ./server
 
 EXPOSE 8000
 CMD ["./server"]

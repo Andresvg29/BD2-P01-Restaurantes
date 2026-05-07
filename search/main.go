@@ -1,4 +1,4 @@
-package search
+package main
 
 import (
 	"log"
@@ -15,24 +15,23 @@ import (
 func main() {
 	_ = godotenv.Load()
 
-	// ── ElasticSearch ──────────────────────────────────────────────────────
-	if err := elasticsearch.InitClient(); err != nil {
-		log.Fatalf("Error iniciando cliente ElasticSearch: %v", err)
-	}
+	// elasticSearch
+	esUrl := os.Getenv("ELASTICSEARCH_URL")
+	elasticsearch.InitClient(esUrl)
 	log.Println("ElasticSearch conectado")
 
-	// ── Repositorios (solo necesario para POST /search/reindex) ───────────
+	// repositorios
 	repos, cleanup, err := repository.NewRepos()
 	if err != nil {
 		log.Fatalf("Error iniciando repositorios: %v", err)
 	}
 	defer cleanup()
-	log.Printf("✓ BD conectada (motor: %s)", os.Getenv("DB_ENGINE"))
+	log.Printf("BD conectada (motor: %s)", os.Getenv("DB_ENGINE"))
 
-	// ── Router ────────────────────────────────────────────────────────────
+	// router
 	router := gin.Default()
 
-	// Todas las rutas de búsqueda son públicas (no requieren JWT)
+	// rutas de busqueda
 	search := router.Group("/search")
 	{
 		search.GET("/products", handlers.SearchProducts)
@@ -40,7 +39,6 @@ func main() {
 		search.POST("/reindex", handlers.ReindexSearch(repos.Menu))
 	}
 
-	// ── Arrancar servidor ─────────────────────────────────────────────────
 	port := os.Getenv("SEARCH_PORT")
 	if port == "" {
 		port = "8001"

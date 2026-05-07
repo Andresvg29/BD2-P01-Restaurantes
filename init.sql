@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS platos (
     descripcion TEXT,
     precio DECIMAL(10, 2) NOT NULL CHECK (precio >= 0),
     esta_disponible BOOLEAN DEFAULT TRUE,
+    categoria VARCHAR(50), DEFAULT 'general',
     CONSTRAINT fk_restaurante_plato FOREIGN KEY (id_restaurante) REFERENCES restaurantes(id) ON DELETE CASCADE
 );
 

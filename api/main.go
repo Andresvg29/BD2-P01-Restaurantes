@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"restaurante/elasticsearch"
 	"restaurante/handlers"
 	"restaurante/keycloak"
 	"restaurante/middleware"
@@ -25,6 +26,10 @@ func main() {
 	defer cleanup()
 	log.Printf("Motor de BD: %s", os.Getenv("DB_ENGINE"))
 
+	//eslastic
+	esUrl := os.Getenv("ELASTICSEARCH_URL")
+	elasticsearch.InitClient(esUrl)
+	//keycloak
 	kc := keycloak.New()
 	if err := kc.Setup(context.Background()); err != nil {
 		log.Fatalf("Error configurando Keycloak: %v", err)
@@ -38,6 +43,14 @@ func main() {
 	router.GET("/menus/:id", handlers.GetMenu(repos.Menu))
 	router.POST("/auth/login", handlers.Login(kc))
 	router.POST("/auth/register", handlers.RegisterUser(kc, repos.User))
+
+	//rutas de busqueda
+	searchGroup := router.Group("/search")
+	{
+		searchGroup.GET("/products", handlers.SearchProducts)
+		searchGroup.GET("/products/category/:categoria", handlers.SearchByCategory)
+		searchGroup.POST("/reindex", handlers.ReindexSearch(repos.Menu))
+	}
 
 	// Rutas protegidas el middleware valida el JWT contra Keycloak
 	protected := router.Group("")

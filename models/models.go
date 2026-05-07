@@ -3,11 +3,11 @@ package models
 import "time"
 
 type User struct {
-	ID           string    `json:"id" bson:"_id,omitempty"`
-	Nombre       string    `json:"nombre" bson:"nombre"`
-	Email        string    `json:"email" bson:"email"`
-	KeycloakID   string    `json:"keycloak_id" bson:"keycloak_id"`
-	IdRol        int       `json:"id_rol" bson:"id_rol"`
+	ID            string    `json:"id" bson:"_id,omitempty"`
+	Nombre        string    `json:"nombre" bson:"nombre"`
+	Email         string    `json:"email" bson:"email"`
+	KeycloakID    string    `json:"keycloak_id" bson:"keycloak_id"`
+	IdRol         int       `json:"id_rol" bson:"id_rol"`
 	FechaCreacion time.Time `json:"fecha_creacion" bson:"fecha_creacion"`
 }
 
@@ -27,6 +27,7 @@ type MenuItem struct {
 	Descripcion    string  `json:"descripcion" bson:"descripcion"`
 	Precio         float64 `json:"precio" bson:"precio"`
 	EstaDisponible bool    `json:"esta_disponible" bson:"esta_disponible"`
+	Categoria      string  `json:"categoria" bson:"categoria"`
 }
 
 type Reservation struct {

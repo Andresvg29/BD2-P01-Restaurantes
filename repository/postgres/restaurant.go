@@ -227,7 +227,7 @@ func (r *MenuRepository) GetByRestaurant(restaurantID string) ([]models.MenuItem
 	for rows.Next() {
 		var item models.MenuItem
 		if err := rows.Scan(&item.ID, &item.IdRestaurante, &item.Nombre,
-			&item.Descripcion, &item.Precio, &item.EstaDisponible); err != nil {
+			&item.Descripcion, &item.Precio, &item.EstaDisponible, &item.Categoria); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -236,6 +236,9 @@ func (r *MenuRepository) GetByRestaurant(restaurantID string) ([]models.MenuItem
 }
 
 func (r *MenuRepository) Create(restaurantID, nombre, descripcion string, precio float64, categoria string) (string, error) {
+	if descripcion == "" {
+		descripcion = "Producto sin descripcion"
+	}
 	var id string
 	err := r.db.QueryRow(
 		`INSERT INTO platos (id_restaurante, nombre, descripcion, precio, categoria) VALUES ($1, $2, $3, $4, $5) RETURNING id`,

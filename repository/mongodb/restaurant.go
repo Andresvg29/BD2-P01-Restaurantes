@@ -233,6 +233,9 @@ func (r *MenuRepository) GetByRestaurant(restaurantID string) ([]models.MenuItem
 
 func (r *MenuRepository) Create(restaurantID, nombre, descripcion string, precio float64, categoria string) (string, error) {
 	id := primitive.NewObjectID().Hex()
+	if descripcion == "" {
+		descripcion = "Producto sin descripcion"
+	}
 	_, err := r.platosCol.InsertOne(context.Background(), bson.M{
 		"_id":             id,
 		"id_restaurante":  restaurantID,

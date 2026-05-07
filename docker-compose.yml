@@ -52,6 +52,21 @@ services:
     depends_on:
       keycloak-db:
         condition: service_healthy
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   api:
     build: .
     container_name: api
@@ -62,6 +77,8 @@ services:
       KEYCLOAK_URL: ${KEYCLOAK_URL}
       MONGO_URI: ${MONGO_URI}
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     ports:
       - "${PORT}:8000"
     depends_on:
@@ -73,6 +90,8 @@ services:
         condition: service_healthy
       mongos:
         condition: service_started
+      redis:
+        condition: service_healthy
     networks:
       - default
       - mongo-cluster
@@ -264,7 +283,7 @@ services:
     container_name: kibana
     restart: always
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ${ELASTICSEARCH_URL}
     ports:
       - "5601:5601"
     depends_on:
@@ -288,6 +307,7 @@ volumes:
   mongo3_data:
   configsvr_data:
   elasticsearch_data:
+  redis_data:
 
 networks:
   mongo-cluster:

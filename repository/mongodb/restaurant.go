@@ -1,11 +1,14 @@
 package mongo
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"time"
 
 	"restaurante/models"
 
+	"github.com/elastic/go-elasticsearch/v8"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -110,11 +113,15 @@ func (r *UserRepository) UpsertFromToken(id, nombre, email string, isAdmin bool)
 }
 
 type RestaurantRepository struct {
-	col *mongo.Collection
+	col           *mongo.Collection
+	elasticClient *elasticsearch.Client
 }
 
-func NewRestaurantRepository(db *mongo.Database) *RestaurantRepository {
-	return &RestaurantRepository{col: db.Collection("restaurantes")}
+func NewRestaurantRepository(db *mongo.Database, ec *elasticsearch.Client) *RestaurantRepository {
+	return &RestaurantRepository{
+		col:           db.Collection("restaurantes"),
+		elasticClient: ec,
+	}
 }
 
 func (r *RestaurantRepository) List() ([]models.Restaurant, error) {
@@ -157,16 +164,41 @@ func (r *RestaurantRepository) GetByID(id string) (*models.Restaurant, error) {
 }
 
 func (r *RestaurantRepository) Create(nombre, direccion, telefono, adminID string, capacidad int) (string, error) {
-	id := primitive.NewObjectID().Hex()
-	_, err := r.col.InsertOne(context.Background(), bson.M{
-		"_id":              id,
+	nuevoRestaurante := bson.M{
 		"nombre":           nombre,
 		"direccion":        direccion,
 		"telefono":         telefono,
 		"id_administrador": adminID,
 		"capacidad_total":  capacidad,
-	})
-	return id, err
+		"fecha_creacion":   time.Now(),
+	}
+	result, err := r.col.InsertOne(context.Background(), nuevoRestaurante)
+	if err != nil {
+		return "", err
+	}
+	id := result.InsertedID.(primitive.ObjectID).Hex()
+	if r.elasticClient != nil {
+		go func() {
+			esDoc := map[string]interface{}{
+				"id":               id,
+				"nombre":           nombre,
+				"direccion":        direccion,
+				"capacidad_total":  capacidad,
+				"id_administrador": adminID,
+			}
+			data, _ := json.Marshal(esDoc)
+			res, err := r.elasticClient.Index(
+				"restaurantes",        // Índice
+				bytes.NewReader(data), // Body
+				r.elasticClient.Index.WithDocumentID(id),
+			)
+			if err == nil {
+				res.Body.Close()
+			}
+		}()
+	}
+
+	return id, nil
 }
 
 type MenuRepository struct {

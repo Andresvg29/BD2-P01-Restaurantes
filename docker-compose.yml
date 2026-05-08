@@ -116,6 +116,7 @@ services:
         condition: service_healthy
     networks:
       - default
+      - mongo-cluster
 
   # Nginx 
   nginx:

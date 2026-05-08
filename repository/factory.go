@@ -7,9 +7,11 @@ import (
 	"log"
 	"os"
 
+	esConn "restaurante/elasticsearch"
 	mongoRepo "restaurante/repository/mongodb"
 	pgRepo "restaurante/repository/postgres"
 
+	"github.com/elastic/go-elasticsearch/v8"
 	_ "github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -47,12 +49,18 @@ func NewRepos() (*Repos, func(), error) {
 			log.Printf("Redis conectado exitosamente")
 		}
 	}
+	elasticURL := os.Getenv("ELASTICSEARCH_URL")
+	if elasticURL == "" {
+		elasticURL = "http://elasticsearch:9200"
+	}
 
+	esConn.InitClient(elasticURL)
+	elasticClient := esConn.ESClient
 	switch engine {
 	case "postgres":
-		return newPostgresRepos(redisClient)
+		return newPostgresRepos(redisClient, elasticClient)
 	case "mongodb":
-		return newMongoRepos(redisClient)
+		return newMongoRepos(redisClient, elasticClient)
 	default:
 		if redisClient != nil {
 			redisClient.Close()
@@ -61,7 +69,7 @@ func NewRepos() (*Repos, func(), error) {
 	}
 }
 
-func newPostgresRepos(redisClient *RedisClient) (*Repos, func(), error) {
+func newPostgresRepos(redisClient *RedisClient, elasticClient *elasticsearch.Client) (*Repos, func(), error) {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		getEnv("POSTGRES_USER", "admin"),
 		getEnv("POSTGRES_PASSWORD", "password"),
@@ -86,7 +94,7 @@ func newPostgresRepos(redisClient *RedisClient) (*Repos, func(), error) {
 
 	// Crear repositorios base
 	var userRepo UserRepository = pgRepo.NewUserRepository(db)
-	var restaurantRepo RestaurantRepository = pgRepo.NewRestaurantRepository(db)
+	var restaurantRepo RestaurantRepository = pgRepo.NewRestaurantRepository(db, elasticClient)
 	var menuRepo MenuRepository = pgRepo.NewMenuRepository(db)
 	reservationRepo := pgRepo.NewReservationRepository(db)
 	orderRepo := pgRepo.NewOrderRepository(db)
@@ -116,7 +124,7 @@ func newPostgresRepos(redisClient *RedisClient) (*Repos, func(), error) {
 	return repos, cleanup, nil
 }
 
-func newMongoRepos(redisClient *RedisClient) (*Repos, func(), error) {
+func newMongoRepos(redisClient *RedisClient, elasticClient *elasticsearch.Client) (*Repos, func(), error) {
 	uri := getEnv("MONGO_URI", "mongodb://localhost:27017")
 	dbName := getEnv("MONGO_DB", "restaurante_db")
 
@@ -138,7 +146,7 @@ func newMongoRepos(redisClient *RedisClient) (*Repos, func(), error) {
 
 	// Crear repositorios base
 	var userRepo UserRepository = mongoRepo.NewUserRepository(db)
-	var restaurantRepo RestaurantRepository = mongoRepo.NewRestaurantRepository(db)
+	var restaurantRepo RestaurantRepository = mongoRepo.NewRestaurantRepository(db, elasticClient)
 	var menuRepo MenuRepository = mongoRepo.NewMenuRepository(db)
 	reservationRepo := mongoRepo.NewReservationRepository(db)
 	orderRepo := mongoRepo.NewOrderRepository(db)

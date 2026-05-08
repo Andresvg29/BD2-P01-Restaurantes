@@ -10,7 +10,7 @@ import (
 var ESClient *elasticsearch.Client
 
 // inicializa la conexión y prepara el indice
-func InitClient(url string) {
+func InitClient(url string) (*elasticsearch.Client, error) {
 	cfg := elasticsearch.Config{
 		Addresses: []string{url},
 	}
@@ -32,6 +32,7 @@ func InitClient(url string) {
 
 	// crear el indice 'platos' con su mapping inicial
 	createPlatosIndex(client)
+	return client, nil
 }
 
 func createPlatosIndex(client *elasticsearch.Client) {

@@ -1,10 +1,14 @@
 package postgres
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"restaurante/models"
+
+	"github.com/elastic/go-elasticsearch/v8"
 )
 
 type UserRepository struct {
@@ -83,11 +87,12 @@ func (r *UserRepository) UpsertFromToken(id, nombre, email string, isAdmin bool)
 }
 
 type RestaurantRepository struct {
-	db *sql.DB
+	db            *sql.DB
+	elasticClient *elasticsearch.Client
 }
 
-func NewRestaurantRepository(db *sql.DB) *RestaurantRepository {
-	return &RestaurantRepository{db: db}
+func NewRestaurantRepository(db *sql.DB, elasticClient *elasticsearch.Client) *RestaurantRepository {
+	return &RestaurantRepository{db: db, elasticClient: elasticClient}
 }
 
 func (r *RestaurantRepository) List() ([]models.Restaurant, error) {
@@ -129,7 +134,32 @@ func (r *RestaurantRepository) Create(nombre, direccion, telefono, adminID strin
 		 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
 		nombre, direccion, telefono, adminID, capacidad,
 	).Scan(&id)
-	return id, err
+
+	if err != nil {
+		return "", err
+	}
+	if r.elasticClient != nil {
+		nuevoRestaurante := map[string]interface{}{
+			"id":               id,
+			"nombre":           nombre,
+			"direccion":        direccion,
+			"telefono":         telefono,
+			"id_administrador": adminID,
+			"capacidad_total":  capacidad,
+		}
+		go func() {
+			data, _ := json.Marshal(nuevoRestaurante)
+			res, err := r.elasticClient.Index(
+				"restaurantes",
+				bytes.NewReader(data),
+				r.elasticClient.Index.WithDocumentID(id),
+			)
+			if err == nil {
+				res.Body.Close()
+			}
+		}()
+	}
+	return id, nil
 }
 
 type ReservationRepository struct {

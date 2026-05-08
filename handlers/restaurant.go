@@ -243,7 +243,11 @@ func GetOrder(orders repository.OrderRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.GetString("user_id")
 		order, err := orders.GetByID(c.Param("id"))
-		if err != nil || order.IdUsuario != userID {
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Orden no encontrada"})
+			return
+		}
+		if order.IdUsuario != userID {
 			c.JSON(http.StatusForbidden, gin.H{"error": "No autorizado"})
 			return
 		}

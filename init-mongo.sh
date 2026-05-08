@@ -14,3 +14,10 @@ docker exec -it mongos mongosh --port 27017 --eval "sh.addShard('shard0/mongo1:2
 
 docker exec mongos mongosh --eval "sh.enableSharding('restaurante_db')"
 docker exec mongos mongosh --eval "sh.shardCollection('restaurante_db.pedidos', { '_id': 'hashed' })"
+docker exec mongos mongosh --eval "sh.shardCollection('restaurante_db.platos', { 'id_restaurante': 1 })"
+
+# 1. Copiar de nuevo el archivo limpio
+docker cp initMongo.js mongos:/initMongo.js
+
+# 2. Ejecutar
+docker exec -it mongos mongosh --file /initMongo.js

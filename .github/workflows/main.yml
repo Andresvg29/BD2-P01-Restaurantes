@@ -50,6 +50,14 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          dockerfile: Dockerfile
+          file: ./Dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USER }}/restaurante-api:latest
+      - name: Build and Push Search Service
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.search 
+          push: true
+          tags: ${{ secrets.DOCKER_USER }}/restaurante-search:latest

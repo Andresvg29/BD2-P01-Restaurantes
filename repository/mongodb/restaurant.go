@@ -136,7 +136,7 @@ func (r *RestaurantRepository) List() ([]models.Restaurant, error) {
 		var doc bson.M
 		cursor.Decode(&doc)
 		list = append(list, models.Restaurant{
-			ID:              extractID(doc["_id"]),
+			ID:              doc["_id"].(string),
 			Nombre:          doc["nombre"].(string),
 			Direccion:       doc["direccion"].(string),
 			Telefono:        doc["telefono"].(string),
@@ -176,7 +176,7 @@ func (r *RestaurantRepository) Create(nombre, direccion, telefono, adminID strin
 	if err != nil {
 		return "", err
 	}
-	id := extractID(result.InsertedID)
+	id := result.InsertedID.(primitive.ObjectID).Hex()
 	if r.elasticClient != nil {
 		go func() {
 			esDoc := map[string]interface{}{
@@ -227,7 +227,7 @@ func (r *MenuRepository) List() ([]models.MenuItem, error) {
 			return nil, err
 		}
 		items = append(items, models.MenuItem{
-			ID:             extractID(doc["_id"]),
+			ID:             doc["_id"].(string),
 			IdRestaurante:  doc["id_restaurante"].(string),
 			Nombre:         doc["nombre"].(string),
 			Descripcion:    doc["descripcion"].(string),
@@ -251,7 +251,7 @@ func (r *MenuRepository) GetByRestaurant(restaurantID string) ([]models.MenuItem
 		var doc bson.M
 		cursor.Decode(&doc)
 		items = append(items, models.MenuItem{
-			ID:             extractID(doc["_id"]),
+			ID:             doc["_id"].(string),
 			IdRestaurante:  restaurantID,
 			Nombre:         doc["nombre"].(string),
 			Descripcion:    doc["descripcion"].(string),
@@ -453,19 +453,5 @@ func toInt(v interface{}) int {
 		return int(i)
 	default:
 		return 0
-	}
-}
-
-func extractID(v interface{}) string {
-	if v == nil {
-		return ""
-	}
-	switch id := v.(type) {
-	case string:
-		return id
-	case primitive.ObjectID:
-		return id.Hex()
-	default:
-		return ""
 	}
 }

@@ -1,0 +1,40 @@
+name: Go Restaurants CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Permite ejecución manual
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Start Infrastructure
+        # Levantamos todo lo necesario para las pruebas
+        run: docker compose up -d db elasticsearch configsvr mongo1 mongo2 mongo3 mongos
+
+      - name: Initialize MongoDB Sharding
+        run: |
+          # Esperar a que los contenedores estén listos
+          sleep 30
+          
+          echo "Inicializando Config Server..."
+          docker exec configsvr mongosh --port 27019 --eval "rs.initiate({_id:'cfgReplSet', configsvr:true, members:[{_id:0, host:'configsvr:27019'}]})"
+          
+          echo "Inicializando Shards..."
+          docker exec mongo1 mongosh --port 27018 --eval "rs.initiate({_id:'shard0', members:[{_id:0, host:'mongo1:27018'}, {_id:1, host:'mongo2:27018'}, {_id:2, host:'mongo3:27018'}]})"
+          
+          sleep 10
+          
+          echo "Vinculando Shard al Router..."
+          docker exec mongos mongosh --port 27017 --eval "sh.addShard('shard0/mongo1:27018')"
+
+      - name: Run Tests
+        run: go test -v ./...

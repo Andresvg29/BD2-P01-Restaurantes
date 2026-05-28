@@ -51,9 +51,9 @@
 
 #### 2.4 Mejoras Arquitectónicas
 
-- [ ] Estandarizar manejo de errores: crear helpers `respondError(c, status, msg)` y `respondJSON(c, status, data)`
-- [ ] Extraer lógica repetitiva de autorización (`adminID != userID`) a helpers
-- [ ] Agregar logs estructurados con request ID y contexto
+- [x] Estandarizar manejo de errores: crear helpers `respondError(c, status, msg)` y `respondJSON(c, status, data)`
+- [x] Extraer lógica repetitiva de autorización (`adminID != userID`) a helpers (`requireSameUser`, `requireAdminOfRestaurant`, `requireAdminOfMenuItem`, `requireOwnerOfReservation`)
+- [x] Agregar logs estructurados con request ID y contexto (`middleware/logger.go` + RequestLogger en `api/main.go`)
 
 ---
 
@@ -118,7 +118,7 @@
 | Limpieza código legacy (decorators Redis + Plato) | ✅ Completado |
 | Consistencia (renombrar mongodb → mongo) | ✅ Completado |
 | Separación handlers por dominio | ✅ Completado |
-| Estandarización errores/logs | ⬜ Pendiente |
+| Estandarización errores/logs | ✅ Completado |
 | Tests unitarios (Redis middleware) | ✅ Completado |
 | Documentación | ⬜ Pendiente |
 | Servicios OLAP | ⬜ Pendiente (Fase 2) |

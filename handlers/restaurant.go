@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"net/http"
+
 	"restaurante/models"
 	"restaurante/repository"
 
@@ -11,13 +13,13 @@ func ListRestaurants(restaurants repository.RestaurantRepository) gin.HandlerFun
 	return func(c *gin.Context) {
 		list, err := restaurants.List()
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Error obteniendo restaurantes"})
+			respondError(c, http.StatusInternalServerError, "Error obteniendo restaurantes")
 			return
 		}
 		if list == nil {
 			list = []models.Restaurant{}
 		}
-		c.JSON(200, list)
+		respondJSON(c, http.StatusOK, list)
 	}
 }
 
@@ -31,15 +33,15 @@ func CreateRestaurant(restaurants repository.RestaurantRepository) gin.HandlerFu
 			CapacidadTotal int    `json:"capacidad_total" binding:"required,gt=0"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+			respondError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 		id, err := restaurants.Create(req.Nombre, req.Direccion, req.Telefono, userID, req.CapacidadTotal)
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Error creando restaurante"})
+			respondError(c, http.StatusInternalServerError, "Error creando restaurante")
 			return
 		}
-		c.JSON(201, models.Restaurant{
+		respondJSON(c, http.StatusCreated, models.Restaurant{
 			ID: id, Nombre: req.Nombre, Direccion: req.Direccion,
 			Telefono: req.Telefono, IdAdministrador: userID, CapacidadTotal: req.CapacidadTotal,
 		})

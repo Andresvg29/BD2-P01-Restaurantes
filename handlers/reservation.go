@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"net/http"
 	"time"
 
 	"restaurante/repository"
@@ -17,37 +18,34 @@ func CreateReservation(reservations repository.ReservationRepository) gin.Handle
 			CantidadPersonas int       `json:"cantidad_personas" binding:"required,gt=0"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+			respondError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 		cap, err := reservations.GetRestaurantCapacity(req.IdRestaurante)
 		if err != nil {
-			c.JSON(404, gin.H{"error": "Restaurante no encontrado"})
+			respondError(c, http.StatusNotFound, "Restaurante no encontrado")
 			return
 		}
 		if req.CantidadPersonas > cap {
-			c.JSON(400, gin.H{"error": "Excede capacidad"})
+			respondError(c, http.StatusBadRequest, "Excede capacidad")
 			return
 		}
 		res, err := reservations.Create(userID, req.IdRestaurante, req.FechaReserva, req.CantidadPersonas)
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Error creando reserva"})
+			respondError(c, http.StatusInternalServerError, "Error creando reserva")
 			return
 		}
-		c.JSON(201, res)
+		respondJSON(c, http.StatusCreated, res)
 	}
 }
 
 func CancelReservation(reservations repository.ReservationRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID := c.GetString("user_id")
 		reservationID := c.Param("id")
-		ownerID, err := reservations.GetOwnerID(reservationID)
-		if err != nil || ownerID != userID {
-			c.JSON(403, gin.H{"error": "No autorizado"})
+		if !requireOwnerOfReservation(c, reservations, reservationID) {
 			return
 		}
 		reservations.Cancel(reservationID)
-		c.JSON(200, gin.H{"message": "Cancelada"})
+		respondJSON(c, http.StatusOK, gin.H{"message": "Cancelada"})
 	}
 }

@@ -18,15 +18,15 @@ func CreateOrder(orders repository.OrderRepository) gin.HandlerFunc {
 			Detalles      []models.OrderDetailRequest `json:"detalles"       binding:"required"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+			respondError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 		order, err := orders.Create(userID, req.IdRestaurante, req.EsRecogida, req.Detalles)
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Error creando pedido"})
+			respondError(c, http.StatusInternalServerError, "Error creando pedido")
 			return
 		}
-		c.JSON(201, order)
+		respondJSON(c, http.StatusCreated, order)
 	}
 }
 
@@ -35,13 +35,13 @@ func GetOrder(orders repository.OrderRepository) gin.HandlerFunc {
 		userID := c.GetString("user_id")
 		order, err := orders.GetByID(c.Param("id"))
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Orden no encontrada"})
+			respondError(c, http.StatusNotFound, "Orden no encontrada")
 			return
 		}
 		if order.IdUsuario != userID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "No autorizado"})
+			respondError(c, http.StatusForbidden, "No autorizado")
 			return
 		}
-		c.JSON(200, order)
+		respondJSON(c, http.StatusOK, order)
 	}
 }

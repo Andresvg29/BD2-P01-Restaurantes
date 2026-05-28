@@ -39,6 +39,9 @@ func main() {
 	// router
 	router := gin.Default()
 
+	// Request logger middleware (request ID, method, path, status, duración)
+	router.Use(middleware.RequestLogger())
+
 	// Redis cache middleware (cache GET públicos + invalida en mutaciones)
 	cache := middleware.NewRedisCacheMiddleware(nil,
 		middleware.WithSkipPaths("/auth/", "/users/", "/orders/", "/reservations/"),

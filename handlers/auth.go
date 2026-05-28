@@ -18,17 +18,17 @@ func Login(kc *keycloak.Client) gin.HandlerFunc {
 			Password string `json:"password" binding:"required"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			respondError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 
 		token, err := kc.LoginUser(context.Background(), req.Email, req.Password)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Credenciales invalidas"})
+			respondError(c, http.StatusUnauthorized, "Credenciales invalidas")
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		respondJSON(c, http.StatusOK, gin.H{
 			"access_token":  token.AccessToken,
 			"refresh_token": token.RefreshToken,
 			"expires_in":    token.ExpiresIn,
@@ -47,27 +47,27 @@ func RegisterUser(kc *keycloak.Client, users repository.UserRepository) gin.Hand
 			Password string `json:"password" binding:"required"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			respondError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 		// crear en Keycloak
 		keycloakID, err := kc.RegisterUser(context.Background(), req.Nombre, req.Apellido, req.Email, req.Password)
 		if err != nil {
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			respondError(c, http.StatusConflict, err.Error())
 			return
 		}
 
 		// sincronizar en la BD local
 		if err := users.UpsertFromToken(keycloakID, req.Nombre, req.Email, false); err != nil {
 			// el usuario existe en Keycloak aunque falle la BD local
-			c.JSON(http.StatusCreated, gin.H{
+			respondJSON(c, http.StatusCreated, gin.H{
 				"id":      keycloakID,
 				"message": "Usuario creado (sincronizacion BD pendiente)",
 			})
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{
+		respondJSON(c, http.StatusCreated, gin.H{
 			"id":      keycloakID,
 			"nombre":  req.Nombre,
 			"email":   req.Email,

@@ -36,12 +36,12 @@
 
 #### 2.2 Consistencia
 
-- [ ] Renombrar paquete `repository/mongodb` → `repository/mongo` (en `factory.go` se importa como `mongoRepo "restaurante/repository/mongodb"` pero el `package` dentro declara `mongo`)
-- [ ] Corregir keys de tests: en `restaurant_redis_test.go` se usa `restaurants:all` pero la constante real es `KeyRestaurantList = "restaurants:list"`
+- [x] Renombrar paquete `repository/mongodb` → `repository/mongo` (en `factory.go` se importa como `mongoRepo "restaurante/repository/mongodb"` pero el `package` dentro declara `mongo`)
+- [x] ~~Corregir keys de tests: en `restaurant_redis_test.go` se usa `restaurants:all` pero la constante real es `KeyRestaurantList = "restaurants:list"`~~ *(archivo eliminado en 2.1)*
 
 #### 2.3 Separación de Responsabilidades
 
-- [ ] Mover handlers a archivos por dominio:
+- [x] Mover handlers a archivos por dominio:
   - `handlers/restaurant.go` → solo `ListRestaurants`, `CreateRestaurant`
   - `handlers/menu.go` → `GetMenu`, `CreateMenu`, `UpdateMenu`, `DeleteMenu`
   - `handlers/reservation.go` → `CreateReservation`, `CancelReservation`
@@ -116,7 +116,8 @@
 |------|--------|
 | Redis como Middleware | ✅ Completado |
 | Limpieza código legacy (decorators Redis + Plato) | ✅ Completado |
-| Separación handlers por dominio | ⬜ Pendiente |
+| Consistencia (renombrar mongodb → mongo) | ✅ Completado |
+| Separación handlers por dominio | ✅ Completado |
 | Estandarización errores/logs | ⬜ Pendiente |
 | Tests unitarios (Redis middleware) | ✅ Completado |
 | Documentación | ⬜ Pendiente |

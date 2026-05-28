@@ -8,7 +8,7 @@ import (
 	"os"
 
 	esConn "restaurante/elasticsearch"
-	mongoRepo "restaurante/repository/mongodb"
+	mongoRepo "restaurante/repository/mongo"
 	pgRepo "restaurante/repository/postgres"
 
 	"github.com/elastic/go-elasticsearch/v8"

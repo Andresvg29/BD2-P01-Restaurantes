@@ -24,6 +24,7 @@ type Repos struct {
 	Menu        MenuRepository
 	Reservation ReservationRepository
 	Order       OrderRepository
+	RedisClient *RedisClient
 }
 
 // lee la variable de entorno DB_ENGINE ("postgres" o "mongodb")
@@ -93,18 +94,11 @@ func newPostgresRepos(redisClient *RedisClient, elasticClient *elasticsearch.Cli
 	}
 
 	// Crear repositorios base
-	var userRepo UserRepository = pgRepo.NewUserRepository(db)
-	var restaurantRepo RestaurantRepository = pgRepo.NewRestaurantRepository(db, elasticClient)
-	var menuRepo MenuRepository = pgRepo.NewMenuRepository(db)
+	userRepo := pgRepo.NewUserRepository(db)
+	restaurantRepo := pgRepo.NewRestaurantRepository(db, elasticClient)
+	menuRepo := pgRepo.NewMenuRepository(db)
 	reservationRepo := pgRepo.NewReservationRepository(db)
 	orderRepo := pgRepo.NewOrderRepository(db)
-
-	// Aplicar decoradores Redis si está disponible
-	if redisClient != nil {
-		userRepo = NewUserRedisDecorator(userRepo, redisClient.Client)
-		restaurantRepo = NewRestaurantRedisDecorator(restaurantRepo, redisClient.Client)
-		menuRepo = NewMenuRedisDecorator(menuRepo, redisClient.Client)
-	}
 
 	repos := &Repos{
 		User:        userRepo,
@@ -112,6 +106,7 @@ func newPostgresRepos(redisClient *RedisClient, elasticClient *elasticsearch.Cli
 		Menu:        menuRepo,
 		Reservation: reservationRepo,
 		Order:       orderRepo,
+		RedisClient: redisClient,
 	}
 
 	cleanup := func() {
@@ -145,18 +140,11 @@ func newMongoRepos(redisClient *RedisClient, elasticClient *elasticsearch.Client
 	db := client.Database(dbName)
 
 	// Crear repositorios base
-	var userRepo UserRepository = mongoRepo.NewUserRepository(db)
-	var restaurantRepo RestaurantRepository = mongoRepo.NewRestaurantRepository(db, elasticClient)
-	var menuRepo MenuRepository = mongoRepo.NewMenuRepository(db)
+	userRepo := mongoRepo.NewUserRepository(db)
+	restaurantRepo := mongoRepo.NewRestaurantRepository(db, elasticClient)
+	menuRepo := mongoRepo.NewMenuRepository(db)
 	reservationRepo := mongoRepo.NewReservationRepository(db)
 	orderRepo := mongoRepo.NewOrderRepository(db)
-
-	// Aplicar decoradores Redis si está disponible
-	if redisClient != nil {
-		userRepo = NewUserRedisDecorator(userRepo, redisClient.Client)
-		restaurantRepo = NewRestaurantRedisDecorator(restaurantRepo, redisClient.Client)
-		menuRepo = NewMenuRedisDecorator(menuRepo, redisClient.Client)
-	}
 
 	repos := &Repos{
 		User:        userRepo,
@@ -164,6 +152,7 @@ func newMongoRepos(redisClient *RedisClient, elasticClient *elasticsearch.Client
 		Menu:        menuRepo,
 		Reservation: reservationRepo,
 		Order:       orderRepo,
+		RedisClient: redisClient,
 	}
 
 	cleanup := func() {

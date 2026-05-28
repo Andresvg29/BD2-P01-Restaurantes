@@ -39,6 +39,17 @@ func main() {
 	// router
 	router := gin.Default()
 
+	// Redis cache middleware (cache GET públicos + invalida en mutaciones)
+	cache := middleware.NewRedisCacheMiddleware(nil,
+		middleware.WithSkipPaths("/auth/", "/users/", "/orders/", "/reservations/"),
+	)
+	if repos.RedisClient != nil {
+		cache = middleware.NewRedisCacheMiddleware(repos.RedisClient.Client,
+			middleware.WithSkipPaths("/auth/", "/users/", "/orders/", "/reservations/"),
+		)
+	}
+	router.Use(cache.Middleware())
+
 	// Rutas publicas
 	router.GET("/restaurants", handlers.ListRestaurants(repos.Restaurant))
 	router.GET("/menus/:id", handlers.GetMenu(repos.Menu))

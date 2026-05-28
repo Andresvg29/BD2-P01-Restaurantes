@@ -6,21 +6,21 @@
 
 **Objetivo:** Migrar del patrón Decorator en repositorios a un middleware Gin que intercepte requests HTTP. Cachear responses GET completas. **Graceful degradation:** si Redis falla, la API sigue funcionando sin interrupción.
 
-- [ ] **Crear `middleware/redis_cache.go`** — Middleware que:
+- [x] **Crear `middleware/redis_cache.go`** — Middleware que:
   - Intercepte requests GET, guarde/recupere responses completas en Redis
   - Invalide caché en POST/PUT/DELETE según la ruta
   - Wrap `gin.ResponseWriter` para capturar el body de la response
   - Timeout corto (500ms) para no bloquear el handler
 
-- [ ] **Eliminar decorators actuales** (`repository/restaurant_redis.go`, `user_redis.go`, `menu_redis.go`) — La lógica de caché pasa al middleware
+- [x] **Eliminar decorators actuales** (`repository/restaurant_redis.go`, `user_redis.go`, `menu_redis.go`) — La lógica de caché pasa al middleware
 
-- [ ] **Simplificar `repository/redis.go`** — Mantener solo conexión Redis y constantes de claves
+- [x] **Simplificar `repository/redis.go`** — Mantener solo conexión Redis y constantes de claves
 
-- [ ] **Actualizar `repository/factory.go`** — Ya no aplicar decorators sobre repositorios
+- [x] **Actualizar `repository/factory.go`** — Ya no aplicar decorators sobre repositorios
 
-- [ ] **Registrar middleware en `api/main.go`**
+- [x] **Registrar middleware en `api/main.go`**
 
-- [ ] **Tests:** `middleware/redis_cache_test.go` con cliente Redis mockeado (cache hit, cache miss, Redis caído, invalidación)
+- [x] **Tests:** `middleware/redis_cache_test.go` con cliente Redis mockeado (cache hit, cache miss, Redis caído, invalidación)
 
 ---
 
@@ -28,11 +28,11 @@
 
 #### 2.1 Limpieza de Legacy
 
-- [ ] Eliminar `repository/plato_repository.go` (tiene tipos duplicados `PlatoRepository` y `Plato` que chocan con `MenuRepository`)
-- [ ] Eliminar `repository/plato_redis.go` (decorator legacy que usa `PlatoRepository`)
-- [ ] Eliminar `repository/plato_postgres.go` (implementación independiente, no se usa en factory)
-- [ ] Eliminar `models/plato.go` (estructura `Plato` duplicada de `models.MenuItem`)
-- [ ] Eliminar `handlers/reservations.go` (archivo vacío, solo `package handlers`)
+- [x] Eliminar `repository/plato_repository.go` (tiene tipos duplicados `PlatoRepository` y `Plato` que chocan con `MenuRepository`)
+- [x] Eliminar `repository/plato_redis.go` (decorator legacy que usa `PlatoRepository`)
+- [x] Eliminar `repository/plato_postgres.go` (implementación independiente, no se usa en factory)
+- [x] Eliminar `models/plato.go` (estructura `Plato` duplicada de `models.MenuItem`)
+- [x] Eliminar `handlers/reservations.go` (archivo vacío, solo `package handlers`)
 
 #### 2.2 Consistencia
 
@@ -59,12 +59,13 @@
 
 ### 3. Tests Unitarios
 
-#### 3.1 Tests de Redis (sin conexión real)
+#### 3.1 Tests de Redis Middleware
 
-- [ ] Refactorizar `repository/restaurant_redis_test.go` — mockear `redis.Client`, eliminar `t.Skip`
-- [ ] Refactorizar `repository/user_redis_test.go` — mockear `redis.Client`, eliminar `t.Skip`
-- [ ] Agregar `repository/menu_redis_test.go` (no existe actualmente)
-- [ ] Mover tests de integración real con Redis (`redis_test.go`) a archivo con build tag `//go:build integration`
+- [x] Tests en `middleware/redis_cache_test.go` con `miniredis` (15 tests):
+  - Cache hit, cache miss, status/content-type preservation
+  - Invalidación POST/PUT/DELETE, skip on non-2xx
+  - Graceful degradation: Redis caído, cliente nil, entrada corrupta
+  - SkipPaths, NonGET, rutas sin regla de invalidación
 
 #### 3.2 Tests de Handlers
 
@@ -113,10 +114,10 @@
 
 | Área | Estado |
 |------|--------|
-| Redis como Middleware | ⬜ Pendiente |
-| Limpieza código legacy | ⬜ Pendiente |
+| Redis como Middleware | ✅ Completado |
+| Limpieza código legacy (decorators Redis + Plato) | ✅ Completado |
 | Separación handlers por dominio | ⬜ Pendiente |
 | Estandarización errores/logs | ⬜ Pendiente |
-| Tests unitarios | ⬜ Pendiente |
+| Tests unitarios (Redis middleware) | ✅ Completado |
 | Documentación | ⬜ Pendiente |
 | Servicios OLAP | ⬜ Pendiente (Fase 2) |

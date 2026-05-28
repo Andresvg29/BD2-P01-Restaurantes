@@ -69,14 +69,15 @@
 
 #### 3.2 Tests de Handlers
 
-- [ ] Crear interfaz `KeycloakClient` para poder mockear `Login` y `RegisterUser` (actualmente reciben `*keycloak.Client` concreto, no se puede mockear)
-- [ ] Agregar `TestLogin_Success` y `TestRegisterUser_Success`
-- [ ] Agregar tests faltantes para `CreateReservation_BadBody`, `CancelReservation_DBError`, etc.
+- [x] Crear interfaz `KeycloakClient` (`keycloak.ClientInterface`) para poder mockear `Login` y `RegisterUser`
+- [x] Agregar `TestLogin_Success`, `TestLogin_Unauthorized`, `TestRegisterUser_Success`, `TestRegisterUser_KeycloakConflict`, `TestRegisterUser_UpsertFails`
+- [x] Agregar tests faltantes: `TestCreateReservation_DBError`, `TestCancelReservation_DBError` + fix handler (no chequeaba error de `Cancel`)
 
 #### 3.3 Tests de Repositorios MongoDB
 
-- [ ] Crear `repository/mongo/repository_test.go` con tests para todos los repos:
-  - `UserRepository`, `RestaurantRepository`, `MenuRepository`, `ReservationRepository`, `OrderRepository`
+- [x] Crear `repository/mongo/repository_test.go` con 55 tests (94.3% cobertura):
+  - `UserRepository` (15 tests), `RestaurantRepository` (7 tests), `MenuRepository` (18 tests)
+  - `ReservationRepository` (8 tests), `OrderRepository` (4 tests), `toInt` via `GetByID` (6 tests)
 
 #### 3.4 Tests de Factory
 
@@ -120,5 +121,6 @@
 | Separación handlers por dominio | ✅ Completado |
 | Estandarización errores/logs | ✅ Completado |
 | Tests unitarios (Redis middleware) | ✅ Completado |
+| Tests repositorios MongoDB (55 tests, 94.3%) | ✅ Completado |
 | Documentación | ⬜ Pendiente |
 | Servicios OLAP | ⬜ Pendiente (Fase 2) |

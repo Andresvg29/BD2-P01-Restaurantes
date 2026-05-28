@@ -12,6 +12,7 @@ import (
 	"restaurante/mocks"
 	"restaurante/models"
 
+	"github.com/Nerzal/gocloak/v13"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
@@ -254,4 +255,117 @@ func TestLogin_MissingPassword(t *testing.T) {
 	}))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestLogin_Success(t *testing.T) {
+	mockKC := new(mocks.MockKeycloakClient)
+	mockKC.On("LoginUser", "ana@mail.com", "pass123").Return(&gocloak.JWT{
+		AccessToken:  "token-abc",
+		RefreshToken: "refresh-xyz",
+		ExpiresIn:    3600,
+		TokenType:    "Bearer",
+	}, nil)
+
+	r := setupRouter()
+	r.POST("/auth/login", handlers.Login(mockKC))
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, newJSONRequest("POST", "/auth/login", map[string]string{
+		"email":    "ana@mail.com",
+		"password": "pass123",
+	}))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.Equal(t, "token-abc", resp["access_token"])
+	assert.Equal(t, "refresh-xyz", resp["refresh_token"])
+	assert.Equal(t, float64(3600), resp["expires_in"])
+	mockKC.AssertExpectations(t)
+}
+
+func TestLogin_Unauthorized(t *testing.T) {
+	mockKC := new(mocks.MockKeycloakClient)
+	mockKC.On("LoginUser", "ana@mail.com", "wrong").Return(nil, errors.New("invalid credentials"))
+
+	r := setupRouter()
+	r.POST("/auth/login", handlers.Login(mockKC))
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, newJSONRequest("POST", "/auth/login", map[string]string{
+		"email":    "ana@mail.com",
+		"password": "wrong",
+	}))
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	mockKC.AssertExpectations(t)
+}
+
+// ── RegisterUser ──────────────────────────────────────────────────────────
+
+func TestRegisterUser_Success(t *testing.T) {
+	mockKC := new(mocks.MockKeycloakClient)
+	mockUsers := new(mocks.MockUserRepository)
+
+	mockKC.On("RegisterUser", "Ana", "López", "ana@mail.com", "pass123").Return("kc-user-1", nil)
+	mockUsers.On("UpsertFromToken", "kc-user-1", "Ana", "ana@mail.com", false).Return(nil)
+
+	r := setupRouter()
+	r.POST("/auth/register", handlers.RegisterUser(mockKC, mockUsers))
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, newJSONRequest("POST", "/auth/register", map[string]string{
+		"nombre":   "Ana",
+		"apellido": "López",
+		"email":    "ana@mail.com",
+		"password": "pass123",
+	}))
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.Contains(t, w.Body.String(), "kc-user-1")
+	mockKC.AssertExpectations(t)
+	mockUsers.AssertExpectations(t)
+}
+
+func TestRegisterUser_KeycloakConflict(t *testing.T) {
+	mockKC := new(mocks.MockKeycloakClient)
+	mockKC.On("RegisterUser", "Ana", "López", "dup@mail.com", "pass123").Return("", errors.New("email ya registrado"))
+
+	r := setupRouter()
+	r.POST("/auth/register", handlers.RegisterUser(mockKC, nil))
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, newJSONRequest("POST", "/auth/register", map[string]string{
+		"nombre":   "Ana",
+		"apellido": "López",
+		"email":    "dup@mail.com",
+		"password": "pass123",
+	}))
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+	mockKC.AssertExpectations(t)
+}
+
+func TestRegisterUser_UpsertFails(t *testing.T) {
+	mockKC := new(mocks.MockKeycloakClient)
+	mockUsers := new(mocks.MockUserRepository)
+
+	mockKC.On("RegisterUser", "Ana", "López", "ana@mail.com", "pass123").Return("kc-user-1", nil)
+	mockUsers.On("UpsertFromToken", "kc-user-1", "Ana", "ana@mail.com", false).Return(errors.New("db error"))
+
+	r := setupRouter()
+	r.POST("/auth/register", handlers.RegisterUser(mockKC, mockUsers))
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, newJSONRequest("POST", "/auth/register", map[string]string{
+		"nombre":   "Ana",
+		"apellido": "López",
+		"email":    "ana@mail.com",
+		"password": "pass123",
+	}))
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.Contains(t, w.Body.String(), "sincronizacion")
+	mockKC.AssertExpectations(t)
+	mockUsers.AssertExpectations(t)
 }

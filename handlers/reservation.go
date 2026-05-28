@@ -45,7 +45,10 @@ func CancelReservation(reservations repository.ReservationRepository) gin.Handle
 		if !requireOwnerOfReservation(c, reservations, reservationID) {
 			return
 		}
-		reservations.Cancel(reservationID)
+		if err := reservations.Cancel(reservationID); err != nil {
+			respondError(c, http.StatusInternalServerError, "Error cancelando reserva")
+			return
+		}
 		respondJSON(c, http.StatusOK, gin.H{"message": "Cancelada"})
 	}
 }

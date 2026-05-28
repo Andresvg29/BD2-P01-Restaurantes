@@ -11,7 +11,7 @@ import (
 )
 
 // Login autentica al usuario contra Keycloak y devuelve el JWT
-func Login(kc *keycloak.Client) gin.HandlerFunc {
+func Login(kc keycloak.ClientInterface) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
 			Email    string `json:"email"    binding:"required"`
@@ -38,7 +38,7 @@ func Login(kc *keycloak.Client) gin.HandlerFunc {
 }
 
 // crea el usuario en Keycloak y guarda referencia en la BD
-func RegisterUser(kc *keycloak.Client, users repository.UserRepository) gin.HandlerFunc {
+func RegisterUser(kc keycloak.ClientInterface, users repository.UserRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
 			Nombre   string `json:"nombre"   binding:"required"`

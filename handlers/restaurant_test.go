@@ -564,6 +564,31 @@ func TestCancelReservation_OK(t *testing.T) {
 	mockRes.AssertExpectations(t)
 }
 
+func TestCreateReservation_DBError(t *testing.T) {
+	mockRes := new(mocks.MockReservationRepository)
+	fecha := time.Now().Add(24 * time.Hour)
+	mockRes.On("GetRestaurantCapacity", "rest-1").Return(50, nil)
+	mockRes.On("Create", "user-123", "rest-1", mock.MatchedBy(func(t time.Time) bool {
+		return t.Equal(fecha)
+	}), 4).Return(nil, errors.New("db error"))
+
+	r := setupRouter()
+	r.POST("/reservations", func(c *gin.Context) {
+		c.Set("user_id", "user-123")
+		handlers.CreateReservation(mockRes)(c)
+	})
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, newJSONRequest("POST", "/reservations", map[string]interface{}{
+		"id_restaurante":    "rest-1",
+		"fecha_reserva":     fecha,
+		"cantidad_personas": 4,
+	}))
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	mockRes.AssertExpectations(t)
+}
+
 func TestCancelReservation_NotAuthorized(t *testing.T) {
 	mockRes := new(mocks.MockReservationRepository)
 	mockRes.On("GetOwnerID", "res-1").Return("otro-user", nil)
@@ -579,6 +604,24 @@ func TestCancelReservation_NotAuthorized(t *testing.T) {
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 	mockRes.AssertNotCalled(t, "Cancel")
+}
+
+func TestCancelReservation_DBError(t *testing.T) {
+	mockRes := new(mocks.MockReservationRepository)
+	mockRes.On("GetOwnerID", "res-1").Return("user-123", nil)
+	mockRes.On("Cancel", "res-1").Return(errors.New("db error"))
+
+	r := setupRouter()
+	r.DELETE("/reservations/:id", func(c *gin.Context) {
+		c.Set("user_id", "user-123")
+		handlers.CancelReservation(mockRes)(c)
+	})
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, newJSONRequest("DELETE", "/reservations/res-1", nil))
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	mockRes.AssertExpectations(t)
 }
 
 // ── CreateOrder ───────────────────────────────────────────────────────────────

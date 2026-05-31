@@ -6,7 +6,7 @@ import (
 	"restaurante/models"
 )
 
-// define las operaciones sobre usuarios
+// UserRepository define las operaciones de persistencia para usuarios.
 type UserRepository interface {
 	GetByID(id string) (*models.User, error)
 	GetByEmail(email string) (*models.User, error)
@@ -16,14 +16,14 @@ type UserRepository interface {
 	UpsertFromToken(id, nombre, email string, isAdmin bool) error //sincroniza un usuario que viene del JWT de Keycloak
 }
 
-// define las operaciones sobre restaurantes
+// RestaurantRepository define las operaciones de persistencia para restaurantes.
 type RestaurantRepository interface {
 	List() ([]models.Restaurant, error)
 	GetByID(id string) (*models.Restaurant, error)
 	Create(nombre, direccion, telefono, adminID string, capacidad int) (string, error)
 }
 
-// define las operaciones sobre platos / menu
+// MenuRepository define las operaciones de persistencia para ítems del menú.
 type MenuRepository interface {
 	List() ([]models.MenuItem, error)
 	GetByRestaurant(restaurantID string) ([]models.MenuItem, error)
@@ -33,7 +33,7 @@ type MenuRepository interface {
 	GetAdminID(platoID string) (string, error) //devuelve el id_administrador del restaurante al que pertenece el plato
 }
 
-// define las operaciones sobre reservas
+// ReservationRepository define las operaciones de persistencia para reservas.
 type ReservationRepository interface {
 	Create(userID, restaurantID string, fecha time.Time, personas int) (*models.Reservation, error)
 	GetOwnerID(reservationID string) (string, error)
@@ -41,7 +41,7 @@ type ReservationRepository interface {
 	GetRestaurantCapacity(restaurantID string) (int, error)
 }
 
-// define las operaciones sobre pedidos
+// OrderRepository define las operaciones de persistencia para pedidos.
 type OrderRepository interface {
 	Create(userID, restaurantID string, esRecogida bool, detalles []models.OrderDetailRequest) (*models.Order, error)
 	GetByID(orderID string) (*models.Order, error)

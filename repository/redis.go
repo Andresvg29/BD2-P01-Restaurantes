@@ -50,7 +50,7 @@ func (r *RedisClient) Close() error {
 	return r.Client.Close()
 }
 
-// CacheKey genera una clave consistente para caché
+// CacheKey es un tipo para claves consistentes de caché en Redis.
 type CacheKey string
 
 const (

@@ -81,33 +81,79 @@
 
 #### 3.4 Tests de Factory
 
-- [ ] Refactorizar `repository/factory_test.go` — actualmente solo testea `getEnv()`
-- [ ] Agregar tests que validen comportamiento según `DB_ENGINE`, `ENABLE_REDIS`, etc.
+- [x] Refactorizar `repository/factory_test.go` — tests de `getEnv` con casos borde (variable vacía, no definida)
+- [ ] NOTA: `NewRepos()` no es unit-testeable directamente porque siempre inicializa Elasticsearch (que requiere conexión real). Separar `InitClient` del constructor permitiría tests unitarios.
 
 ---
 
 ### 4. Documentación
 
-- [ ] **README.md**:
+- [x] **README.md**:
   - Diagrama de arquitectura (componentes y flujo)
   - Documentar nuevo patrón: Redis como middleware HTTP
   - Agregar sección "Decisiones Técnicas"
   - Mejorar ejemplos de API con `curl`
   - Documentar transición OLTP → OLAP
+  - Agregar API Reference completa
 
-- [ ] **REDIS_CONFIG.md**: Actualizar para reflejar middleware HTTP, nuevo formato de claves, graceful degradation
+- [x] **REDIS_CONFIG.md**: Actualizar para reflejar middleware HTTP, nuevo formato de claves, graceful degradation, invalidación
 
-- [ ] **GoDoc en funciones exportadas**: `models/`, `repository/interface.go`, `handlers/`, `middleware/`
+- [x] **GoDoc en funciones exportadas**: `models/` (todos los tipos), `repository/interface.go` (interfaces), `repository/factory.go` (Repos, NewRepos), `middleware/redis_cache.go` (tipos exportados), `middleware/auth.go` (RequireAdmin), `middleware/logger.go` (RequestLogger), `elasticsearch/client.go` (InitClient), `keycloak/interfaces.go` (ClientInterface)
 
 ---
 
-## 🚀 Fase 2: Servicios OLAP
+## 🚀 Fase 2: Análisis y Procesamiento OLAP
 
-### Pendiente definir
+### 1. Arquitectura OLAP y Almacén de Datos (20%)
+- [ ] Diseñar esquema estrella o copo de nieve consolidando datos históricos de reservas, productos, pedidos y usuarios
+- [ ] Implementar Data Warehouse con Apache Hive
+- [ ] Crear 5+ cubos/vistas OLAP que permitan análisis agregados por tiempo, ubicación, tipo de producto y frecuencia de uso
 
-- Endpoints analíticos (ventas, platos populares, ingresos por restaurante, tendencias, etc.)
-- Evaluar: ¿nuevo microservicio o endpoints en API actual?
-- Evaluar motor: ¿agregaciones MongoDB, vistas PostgreSQL, o Elasticsearch?
+### 2. Procesamiento con Apache Spark (20%)
+- [ ] Procesar grandes volúmenes de datos de órdenes, productos y reservas
+- [ ] Implementar transformaciones con Spark DataFrames y SparkSQL
+- [ ] Análisis: Tendencias de consumo
+- [ ] Análisis: Horarios pico
+- [ ] Análisis: Crecimiento mensual
+
+### 3. Visualización de Datos (15%)
+- [ ] Configurar herramienta libre (Apache Superset / Metabase / Redash)
+- [ ] Dashboard 1: Ingresos por mes y categoría de producto
+- [ ] Dashboard 2: Actividad de clientes por zona geográfica
+- [ ] Dashboard 3: Estadísticas de pedidos completados vs cancelados
+
+### 4. Orquestación con Apache Airflow (15%)
+- [ ] Diseñar DAG con flujo completo:
+  - Extracción: Obtener datos desde MongoDB o PostgreSQL
+  - Transformación: Procesar datos con Spark
+  - Carga: Insertar datos transformados en el Data Warehouse
+- [ ] Tarea de mantenimiento: Reindexar ElasticSearch si se detectan cambios en el catálogo de productos
+
+### 5. Neo4J para Análisis de Grafos y Rutas (15%)
+- [ ] Modelar relación usuarios, productos y pedidos en estructura de grafo
+- [ ] Identificar patrones de co-compra y usuarios influyentes en el sistema de recomendaciones
+- [ ] Simular y optimizar rutas de entrega usando geonodos y relaciones de distancia/tiempo estimado
+- [ ] Consulta Cypher: Top 5 productos más comprados juntos
+- [ ] Consulta Cypher: Usuarios que recomiendan a otros
+- [ ] Consulta Cypher: Caminos mínimos entre ubicaciones para reparto eficiente
+
+### 6. Asignación de Rutas de Entrega (10%)
+- [ ] Diseñar módulo para simular rutas de entrega basadas en geolocalización de clientes
+- [ ] Implementar heurística (vecino más cercano / consultas Neo4J para caminos óptimos)
+- [ ] Mostrar rutas optimizadas y asignaciones correspondientes por repartidor
+
+### 7. Pruebas y Validaciones
+- [ ] Verificar integridad y consistencia de datos almacenados en el warehouse
+- [ ] Validar ejecución periódica y robustez del pipeline orquestado con Airflow
+- [ ] Validar resultados analíticos de Spark y Neo4J mediante consultas y reportes exportables
+
+### 8. Entregables
+- [ ] Código fuente completo y definición del DAG de Airflow
+- [ ] Scripts o notebooks desarrollados para Spark
+- [ ] Dashboards configurados y listos para exportar
+- [ ] Consultas Cypher y documentación de la estructura del grafo
+- [ ] Capturas de pantalla o video demostrativo del funcionamiento
+- [ ] Documentación técnica en PDF (flujo de datos, decisiones arquitectónicas, ejemplos)
 
 ---
 
@@ -122,5 +168,13 @@
 | Estandarización errores/logs | ✅ Completado |
 | Tests unitarios (Redis middleware) | ✅ Completado |
 | Tests repositorios MongoDB (55 tests, 94.3%) | ✅ Completado |
-| Documentación | ⬜ Pendiente |
-| Servicios OLAP | ⬜ Pendiente (Fase 2) |
+| Tests factory (getEnv con casos borde) | ✅ Completado |
+| Documentación (README, REDIS_CONFIG, GoDoc) | ✅ Completado |
+| Data Warehouse y OLAP (Hive, esquema estrella, 5+ cubos) | ⬜ Pendiente |
+| Procesamiento con Spark (DataFrames, SparkSQL, 3 análisis) | ⬜ Pendiente |
+| Visualización (Superset/Metabase/Redash, 3 dashboards) | ⬜ Pendiente |
+| Orquestación Airflow (DAG ETL + reindexado ES) | ⬜ Pendiente |
+| Neo4J (grafo, co-compra, rutas, consultas Cypher) | ⬜ Pendiente |
+| Rutas de Entrega (simulación, heurística, asignación) | ⬜ Pendiente |
+| Pruebas y Validaciones OLAP | ⬜ Pendiente |
+| Entregables (código, DAG, notebooks, dashboards, PDF) | ⬜ Pendiente |

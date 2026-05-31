@@ -2,6 +2,7 @@ package models
 
 import "time"
 
+// User representa un usuario autenticado vía Keycloak con referencia local en BD.
 type User struct {
 	ID            string    `json:"id" bson:"_id,omitempty"`
 	Nombre        string    `json:"nombre" bson:"nombre"`
@@ -11,6 +12,7 @@ type User struct {
 	FechaCreacion time.Time `json:"fecha_creacion" bson:"fecha_creacion"`
 }
 
+// Restaurant representa un restaurante con sus datos de contacto y administrador.
 type Restaurant struct {
 	ID              string `json:"id" bson:"_id,omitempty"`
 	Nombre          string `json:"nombre" bson:"nombre"`
@@ -20,6 +22,7 @@ type Restaurant struct {
 	CapacidadTotal  int    `json:"capacidad_total" bson:"capacidad_total"`
 }
 
+// MenuItem es un plato individual dentro del menú de un restaurante.
 type MenuItem struct {
 	ID             string  `json:"id" bson:"_id,omitempty"`
 	IdRestaurante  string  `json:"id_restaurante" bson:"id_restaurante"`
@@ -30,6 +33,7 @@ type MenuItem struct {
 	Categoria      string  `json:"categoria" bson:"categoria"`
 }
 
+// Reservation representa una reserva realizada por un usuario en un restaurante.
 type Reservation struct {
 	ID               string    `json:"id" bson:"_id,omitempty"`
 	IdUsuario        string    `json:"id_usuario" bson:"id_usuario"`
@@ -40,6 +44,7 @@ type Reservation struct {
 	NombreEstado     string    `json:"nombre_estado" bson:"nombre_estado"`
 }
 
+// Order representa un pedido realizado por un usuario en un restaurante.
 type Order struct {
 	ID             string        `json:"id" bson:"_id,omitempty"`
 	IdUsuario      string        `json:"id_usuario" bson:"id_usuario"`
@@ -50,6 +55,7 @@ type Order struct {
 	Detalles       []OrderDetail `json:"detalles" bson:"detalles"`
 }
 
+// OrderDetail contiene la información de un plato dentro de un pedido.
 type OrderDetail struct {
 	ID       string  `json:"id" bson:"_id,omitempty"`
 	IdPlato  string  `json:"id_plato" bson:"id_plato"`
@@ -57,7 +63,7 @@ type OrderDetail struct {
 	Precio   float64 `json:"precio" bson:"precio"`
 }
 
-// se usa al crear un pedido de parte del body request
+// OrderDetailRequest es la estructura usada en el body al crear un pedido.
 type OrderDetailRequest struct {
 	IdPlato  string `json:"id_plato"  binding:"required"`
 	Cantidad int    `json:"cantidad"  binding:"required,gt=0"`

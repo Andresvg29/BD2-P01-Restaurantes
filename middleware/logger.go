@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// RequestLogger es middleware que logea cada request con ID único, método, path, status y duración.
 func RequestLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestID := fmt.Sprintf("%x", time.Now().UnixNano())

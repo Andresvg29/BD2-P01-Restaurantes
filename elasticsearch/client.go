@@ -9,7 +9,8 @@ import (
 
 var ESClient *elasticsearch.Client
 
-// inicializa la conexión y prepara el indice
+// InitClient inicializa la conexión a Elasticsearch, verifica conectividad
+// y crea el índice "platos" con su mapping si no existe.
 func InitClient(url string) (*elasticsearch.Client, error) {
 	cfg := elasticsearch.Config{
 		Addresses: []string{url},

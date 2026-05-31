@@ -17,7 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// agrupa todos los repositorios listos para inyectar en los handlers
+// Repos agrupa todos los repositorios listos para inyectar en los handlers.
 type Repos struct {
 	User        UserRepository
 	Restaurant  RestaurantRepository
@@ -27,7 +27,9 @@ type Repos struct {
 	RedisClient *RedisClient
 }
 
-// lee la variable de entorno DB_ENGINE ("postgres" o "mongodb")
+// NewRepos crea los repositorios según DB_ENGINE ("postgres" o "mongodb").
+// También inicializa Redis (si ENABLE_REDIS=true) y Elasticsearch.
+// Devuelve un closure cleanup para liberar recursos al finalizar.
 func NewRepos() (*Repos, func(), error) {
 	engine := os.Getenv("DB_ENGINE")
 	if engine == "" {

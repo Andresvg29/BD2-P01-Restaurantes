@@ -80,6 +80,7 @@ func RequireRole(role string) gin.HandlerFunc {
 	}
 }
 
+// RequireAdmin es middleware que verifica que el rol del usuario sea admin (id_rol == 1).
 func RequireAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		roleID, exists := c.Get("user_role_id")

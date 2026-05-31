@@ -1,119 +1,125 @@
-# Configuración de Redis
-## Funcionalidades Cacheadas
+# Configuración de Redis (Middleware HTTP)
 
-Redis cachea automáticamente los siguientes datos:
+## Arquitectura
 
-### 1. **Restaurantes** (15 minutos)
-- Listado completo de restaurantes
-- Restaurantes por ID
+Redis funciona como **middleware HTTP** que intercepta requests GET en el router de Gin, cachea responses completas e invalida la caché en operaciones de mutación (POST/PUT/DELETE).
+
+### Flujo
+
+```
+Request → Gin Route → Redis Middleware → Handler → Base Repo (Postgres/Mongo) → DB
+                       ↕ Redis
+```
+
+### Graceful Degradation
+
+Si Redis falla o no está disponible, la API **sigue funcionando sin interrupción**:
+- Toda operación Redis usa contexto con timeout de 500ms
+- Redis error → log + pass-through al handler
+- cliente `nil` → pass-through directo sin intentar Redis
+- Nunca se retorna error al cliente por falla de Redis
+
+## Formato de Cache Keys
+
+Las claves usan el patrón `METHOD:/path`:
+
+```
+GET:/restaurants              → "GET:/restaurants"
+GET:/restaurants/123          → "GET:/restaurants/123"
+GET:/menus                    → "GET:/menus"
+GET:/menus/5                  → "GET:/menus/5"
+```
+
+Se generan con: `method + ":" + c.Request.URL.Path`
+
+## Formato del Valor Cacheado
 
 ```go
-// Métodos cacheados:
-restaurantRepo.List()           // Lista todas los restaurantes
-restaurantRepo.GetByID(id)      // Obtiene restaurante por ID
-// Automáticamente se invalida al crear nuevos
-restaurantRepo.Create(...)      // Invalida el caché de lista
+type cachedResponse struct {
+    Status      int    `json:"s"`          // status code (200, 201...)
+    ContentType string `json:"c"`          // ej: "application/json; charset=utf-8"
+    Body        []byte `json:"b,omitempty"` // response body
+}
 ```
 
-### 2. **Menús** (15 minutos)
-- Listado completo de menús
-- Menús por restaurante
-- Menús por ID
+Se guarda como JSON en Redis. En cache hit se deserializa y se sirve con `c.Data(status, contentType, body)`.
 
-```go
-// Métodos cacheados:
-menuRepo.List()                         // Lista todos los menús
-menuRepo.GetByRestaurant(restaurantID)  // Menús de un restaurante
-menuRepo.Create(...)                    // Invalida cachés relacionados
-menuRepo.Update(...)                    // Invalida cachés
-menuRepo.Delete(...)                    // Invalida cachés
-```
+## Rutas Cacheadas
 
-### 3. **Usuarios** (15 minutos)
-- Usuarios por ID
-- Usuarios por Email
+Se cachean únicamente responses GET de rutas públicas:
+- `GET /restaurants` — listado completo
+- `GET /menus/:id` — menú por restaurante
 
-```go
-// Métodos cacheados:
-userRepo.GetByID(id)            // Obtiene usuario por ID
-userRepo.GetByEmail(email)      // Obtiene usuario por email
-userRepo.Create(...)            // Invalida caché de email
-userRepo.Update(...)            // Invalida cachés del usuario
-userRepo.Delete(...)            // Invalida caché
-userRepo.UpsertFromToken(...)   // Invalida cachés
-```
+### Rutas Excluidas (SkipPaths)
 
-## Estructura de Claves en Redis
-
-Las claves en Redis siguen un patrón consistente:
-
-```
-restaurants:list              # Lista de restaurantes
-restaurant:{id}               # Restaurante individual
-menus:list                    # Lista de menús
-menus:restaurant:{id}         # Menús de un restaurante
-menu:{id}                     # Menú individual
-user:{id}                     # Usuario por ID
-user:email:{email}            # Usuario por email
-reservation:{id}              # Reservación
-order:{id}                    # Orden
-```
+No se cachean rutas con datos de usuario para evitar servir datos de un usuario a otro:
+- `/auth/` — login/register
+- `/users/` — datos de perfil
+- `/orders/` — pedidos
+- `/reservations/` — reservas
 
 ## Duración del Caché
 
-- **Por defecto**: 15 minutos (`CacheDuration = 15 * time.Minute`)
-- Puedes ajustar en [repository/redis.go](repository/redis.go#L49)
+- **Por defecto**: 15 minutos (`defaultCacheDuration = 15 * time.Minute`)
+- Configurable con opción `WithDuration()` en `middleware/redis_cache.go`
 
-## Monitoreo de Redis
+## Invalidación de Caché
 
-### Conectarse a Redis en línea de comandos
+En operaciones de mutación (POST/PUT/DELETE), si el handler responde con status 2xx, se invalidan las claves relacionadas:
 
-```bash
-# Dentro del contenedor
-docker exec -it redis redis-cli
+| Ruta Mutante | Keys Exactas | Keys por SCAN |
+|---|---|---|
+| `POST /restaurants` | — | `GET:/restaurants` |
+| `POST /menus` | — | `GET:/menus` |
+| `PUT /menus/:id` | `GET:/menus/:id` | `GET:/menus` |
+| `DELETE /menus/:id` | `GET:/menus/:id` | `GET:/menus` |
+| `PUT /users/:id` | `GET:/users/:id`, `GET:/users/me` | — |
+| `DELETE /users/:id` | `GET:/users/:id` | `GET:/users` |
+| `POST /reservations` | — | `GET:/restaurants` |
+| `DELETE /reservations/:id` | — | `GET:/restaurants` |
+| `POST /orders` | — | `GET:/restaurants` |
 
-# Comandos útiles:
-PING                    # Verifica conexión
-KEYS *                  # Ver todas las claves
-GET key_name            # Obtener valor de una clave
-DEL key_name            # Eliminar una clave
-FLUSHALL                # Limpiar todo Redis
-INFO stats              # Ver estadísticas
-MONITOR                 # Ver comandos en tiempo real
+- Keys exactas: se resuelven reemplazando `:param` por `c.Param("param")`
+- Keys por SCAN: se usa `SCAN {cursor} MATCH {prefix}*` + `DEL` en lotes de 100
+- No se invalida si el handler responde con status >= 300
+
+## Configuración
+
+### Variables de Entorno
+
+```env
+# Redis
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=
+ENABLE_REDIS=true
 ```
 
-### Monitoreo desde la aplicación
-
-El proyecto registra (logs) conexiones y eventos de Redis:
-
-```go
-log.Printf("Redis conectado exitosamente")
-log.Printf("Advertencia: No se pudo conectar a Redis: %v. Funcionando sin caché.", err)
-```
-
-## Desabilitar Redis
-
-Si necesitas deshabilitar Redis temporalmente:
+### Deshabilitar Redis
 
 ```bash
 # En .env
 ENABLE_REDIS=false
 ```
 
-O en `docker-compose.yml`, comenta el servicio de Redis y remueve la dependencia del contenedor `api`.
+## Monitoreo
 
-## Persistencia
+```bash
+# Conectarse a Redis CLI
+docker exec -it redis redis-cli
 
-Redis está configurado con `--appendonly yes` para persistencia:
-
-- Los datos se guardan en el volumen `redis_data`
-- Si el contenedor se detiene, los datos se mantienen
-- En desarrollo, puedes usar `docker volume rm redis_data` para limpiar
+# Comandos útiles:
+PING                    # Verifica conexión
+KEYS *                  # Ver todas las claves (evitar en producción)
+SCAN 0 MATCH GET:/*     # Listar claves de caché (recomendado)
+GET "GET:/restaurants"  # Obtener valor cacheado
+FLUSHALL                # Limpiar todo Redis
+INFO stats              # Ver estadísticas
+```
 
 ## Rendimiento
 
 Con Redis habilitado:
-
 - **Consultas cacheadas**: ~0.5-1ms (vs 50-100ms sin caché)
 - **Reducción de carga BD**: ~70-80% menos consultas para datos frecuentes
 - **Memoria adicional**: ~5-20MB dependiendo del volumen de datos
@@ -131,13 +137,6 @@ docker ps | grep redis
 docker-compose logs redis
 ```
 
-### Timeout en operaciones Redis
-```
-i/o timeout
-```
-
-**Solución**: Aumenta los timeouts en [repository/redis.go](repository/redis.go#L29-L32)
-
 ### Redis lleno
 ```
 OOM command not allowed when used memory > 'maxmemory'.
@@ -148,45 +147,31 @@ OOM command not allowed when used memory > 'maxmemory'.
 docker exec -it redis redis-cli FLUSHALL
 ```
 
-O establecer una política de evicción en Docker:
+O establecer política de evicción:
 ```yaml
 command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
 ```
 
-## Decoradores (Patrón)
+## Detalles Técnicos
 
-Los decoradores de Redis envuelven los repositorios base implementando el mismo interfaz:
+### Custom ResponseWriter
 
-- [restaurant_redis.go](repository/restaurant_redis.go)
-- [menu_redis.go](repository/menu_redis.go)
-- [user_redis.go](repository/user_redis.go)
-- [plato_redis.go](repository/plato_redis.go)
-
-Esto permite:
-- ✅ Caché transparente sin cambiar los handlers
-- ✅ Invalidación automática en operaciones de escritura
-- ✅ Fallback a BD si Redis no está disponible
-- ✅ Fácil de remover o customizar
-
-## Ejemplo de uso en handlers
-
-No necesitas cambiar nada en los handlers. El caché funciona automáticamente:
+Wrapper que incrusta `gin.ResponseWriter` para capturar body y status:
 
 ```go
-// En handlers/restaurant.go
-func ListRestaurants(repo RestaurantRepository) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        // Esta llamada usa caché automáticamente si Redis está disponible
-        restaurants, err := repo.List()
-        // ...
-    }
+type responseWriter struct {
+    gin.ResponseWriter
+    body   bytes.Buffer
+    status int
 }
 ```
 
-## Próximos pasos
+### Código Fuente
 
-1. ✅ Configurar variables de entorno
-2. ✅ Ejecutar `docker-compose up --build`
-3. ✅ Verificar logs de Redis: `docker-compose logs redis`
-4. ✅ Monitorear caché: `docker exec -it redis redis-cli`
-5. ✅ Ajustar duración de caché según tus necesidades
+- `middleware/redis_cache.go` — Implementación del middleware
+- `middleware/redis_cache_test.go` — Tests con miniredis (15 tests)
+- `repository/redis.go` — Conexión Redis y constantes de claves
+
+### Migración desde Decorators
+
+Anteriormente Redis se implementaba como decorators sobre los repositorios (`repository/restaurant_redis.go`, `user_redis.go`, `menu_redis.go`). Esos archivos fueron eliminados. La lógica de caché ahora reside completamente en el middleware HTTP, simplificando los repositorios y centralizando la gestión de caché.

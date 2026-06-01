@@ -69,7 +69,13 @@ func RequireRole(role string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		for _, r := range roles.([]string) {
+		rolesList, ok := roles.([]string)
+		if !ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Formato de roles inválido"})
+			c.Abort()
+			return
+		}
+		for _, r := range rolesList {
 			if r == role {
 				c.Next()
 				return
@@ -91,7 +97,13 @@ func RequireAdmin() gin.HandlerFunc {
 		}
 
 		// Verificamos si el ID de rol es 1 (Admin)
-		if roleID.(int) != 1 {
+		roleIDInt, ok := roleID.(int)
+		if !ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Formato de rol inválido"})
+			c.Abort()
+			return
+		}
+		if roleIDInt != 1 {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Acceso restringido"})
 			c.Abort()
 			return

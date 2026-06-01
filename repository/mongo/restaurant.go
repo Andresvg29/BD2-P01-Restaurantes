@@ -31,10 +31,10 @@ func (r *UserRepository) GetByID(id string) (*models.User, error) {
 	}
 	user := &models.User{
 		ID:            id,
-		Nombre:        result["nombre"].(string),
-		Email:         result["email"].(string),
+		Nombre:        toString(result["nombre"]),
+		Email:         toString(result["email"]),
 		IdRol:         toInt(result["id_rol"]),
-		FechaCreacion: result["fecha_creacion"].(primitive.DateTime).Time(),
+		FechaCreacion: time.Time{},
 	}
 	if fecha, ok := result["fecha_creacion"].(primitive.DateTime); ok {
 		user.FechaCreacion = fecha.Time()
@@ -51,7 +51,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	id := result["_id"].(string)
+	id := objectIDToString(result["_id"])
 	return &models.User{ID: id, Email: email}, nil
 }
 
@@ -68,7 +68,7 @@ func (r *UserRepository) Create(nombre, email, keycloakID string) (string, error
 	if err != nil {
 		return "", err
 	}
-	return res.InsertedID.(string), nil
+	return objectIDToString(res.InsertedID), nil
 }
 
 func (r *UserRepository) Update(id, nombre, email string) error {
@@ -136,12 +136,12 @@ func (r *RestaurantRepository) List() ([]models.Restaurant, error) {
 		var doc bson.M
 		cursor.Decode(&doc)
 		list = append(list, models.Restaurant{
-			ID:              doc["_id"].(string),
-			Nombre:          doc["nombre"].(string),
-			Direccion:       doc["direccion"].(string),
-			Telefono:        doc["telefono"].(string),
-			IdAdministrador: doc["id_administrador"].(string),
-			CapacidadTotal:  int(doc["capacidad_total"].(int32)),
+			ID:              objectIDToString(doc["_id"]),
+			Nombre:          toString(doc["nombre"]),
+			Direccion:       toString(doc["direccion"]),
+			Telefono:        toString(doc["telefono"]),
+			IdAdministrador: toString(doc["id_administrador"]),
+			CapacidadTotal:  toInt(doc["capacidad_total"]),
 		})
 	}
 	return list, nil
@@ -155,16 +155,18 @@ func (r *RestaurantRepository) GetByID(id string) (*models.Restaurant, error) {
 	}
 	return &models.Restaurant{
 		ID:              id,
-		Nombre:          doc["nombre"].(string),
-		Direccion:       doc["direccion"].(string),
-		Telefono:        doc["telefono"].(string),
-		IdAdministrador: doc["id_administrador"].(string),
-		CapacidadTotal:  int(doc["capacidad_total"].(int32)),
+		Nombre:          toString(doc["nombre"]),
+		Direccion:       toString(doc["direccion"]),
+		Telefono:        toString(doc["telefono"]),
+		IdAdministrador: toString(doc["id_administrador"]),
+		CapacidadTotal:  toInt(doc["capacidad_total"]),
 	}, nil
 }
 
 func (r *RestaurantRepository) Create(nombre, direccion, telefono, adminID string, capacidad int) (string, error) {
+	id := primitive.NewObjectID().Hex()
 	nuevoRestaurante := bson.M{
+		"_id":              id,
 		"nombre":           nombre,
 		"direccion":        direccion,
 		"telefono":         telefono,
@@ -172,11 +174,10 @@ func (r *RestaurantRepository) Create(nombre, direccion, telefono, adminID strin
 		"capacidad_total":  capacidad,
 		"fecha_creacion":   time.Now(),
 	}
-	result, err := r.col.InsertOne(context.Background(), nuevoRestaurante)
+	_, err := r.col.InsertOne(context.Background(), nuevoRestaurante)
 	if err != nil {
 		return "", err
 	}
-	id := result.InsertedID.(primitive.ObjectID).Hex()
 	if r.elasticClient != nil {
 		go func() {
 			esDoc := map[string]interface{}{
@@ -227,13 +228,13 @@ func (r *MenuRepository) List() ([]models.MenuItem, error) {
 			return nil, err
 		}
 		items = append(items, models.MenuItem{
-			ID:             doc["_id"].(string),
-			IdRestaurante:  doc["id_restaurante"].(string),
-			Nombre:         doc["nombre"].(string),
-			Descripcion:    doc["descripcion"].(string),
-			Precio:         doc["precio"].(float64),
-			EstaDisponible: doc["esta_disponible"].(bool),
-			Categoria:      doc["categoria"].(string),
+			ID:             objectIDToString(doc["_id"]),
+			IdRestaurante:  toString(doc["id_restaurante"]),
+			Nombre:         toString(doc["nombre"]),
+			Descripcion:    toString(doc["descripcion"]),
+			Precio:         toFloat64(doc["precio"]),
+			EstaDisponible: toBool(doc["esta_disponible"]),
+			Categoria:      toString(doc["categoria"]),
 		})
 	}
 	return items, nil
@@ -251,13 +252,13 @@ func (r *MenuRepository) GetByRestaurant(restaurantID string) ([]models.MenuItem
 		var doc bson.M
 		cursor.Decode(&doc)
 		items = append(items, models.MenuItem{
-			ID:             doc["_id"].(string),
+			ID:             objectIDToString(doc["_id"]),
 			IdRestaurante:  restaurantID,
-			Nombre:         doc["nombre"].(string),
-			Descripcion:    doc["descripcion"].(string),
-			Precio:         doc["precio"].(float64),
-			EstaDisponible: doc["esta_disponible"].(bool),
-			Categoria:      doc["categoria"].(string),
+			Nombre:         toString(doc["nombre"]),
+			Descripcion:    toString(doc["descripcion"]),
+			Precio:         toFloat64(doc["precio"]),
+			EstaDisponible: toBool(doc["esta_disponible"]),
+			Categoria:      toString(doc["categoria"]),
 		})
 	}
 	return items, nil
@@ -308,13 +309,13 @@ func (r *MenuRepository) GetAdminID(platoID string) (string, error) {
 	if err := r.platosCol.FindOne(context.Background(), bson.M{"_id": platoID}).Decode(&plato); err != nil {
 		return "", err
 	}
-	restaurantID := plato["id_restaurante"].(string)
+	restaurantID := toString(plato["id_restaurante"])
 
 	var restaurant bson.M
 	if err := r.restaurantesCol.FindOne(context.Background(), bson.M{"_id": restaurantID}).Decode(&restaurant); err != nil {
 		return "", err
 	}
-	return restaurant["id_administrador"].(string), nil
+	return toString(restaurant["id_administrador"]), nil
 }
 
 type ReservationRepository struct {
@@ -334,7 +335,7 @@ func (r *ReservationRepository) GetRestaurantCapacity(restaurantID string) (int,
 	if err := r.restaurantesCol.FindOne(context.Background(), bson.M{"_id": restaurantID}).Decode(&doc); err != nil {
 		return 0, err
 	}
-	return int(doc["capacidad_total"].(int32)), nil
+	return toInt(doc["capacidad_total"]), nil
 }
 
 func (r *ReservationRepository) Create(userID, restaurantID string, fecha time.Time, personas int) (*models.Reservation, error) {
@@ -364,7 +365,7 @@ func (r *ReservationRepository) GetOwnerID(reservationID string) (string, error)
 	if err != nil {
 		return "", err
 	}
-	return doc["id_usuario"].(string), nil
+	return toString(doc["id_usuario"]), nil
 }
 
 func (r *ReservationRepository) Cancel(reservationID string) error {
@@ -396,7 +397,7 @@ func (r *OrderRepository) Create(userID, restaurantID string, esRecogida bool, d
 	for _, d := range detalles {
 		var plato bson.M
 		r.platosCol.FindOne(context.Background(), bson.M{"_id": d.IdPlato}).Decode(&plato)
-		precio := plato["precio"].(float64)
+		precio := toFloat64(plato["precio"])
 		detailID := primitive.NewObjectID().Hex()
 		total += precio * float64(d.Cantidad)
 		details = append(details, models.OrderDetail{
@@ -429,13 +430,68 @@ func (r *OrderRepository) GetByID(orderID string) (*models.Order, error) {
 	}
 	order := &models.Order{
 		ID:             orderID,
-		IdUsuario:      doc["id_usuario"].(string),
-		IdRestaurante:  doc["id_restaurante"].(string),
-		EsRecogida:     doc["es_recogida"].(bool),
-		IdEstadoPedido: int(doc["id_estado_pedido"].(int32)),
-		Total:          doc["total"].(float64),
+		IdUsuario:      toString(doc["id_usuario"]),
+		IdRestaurante:  toString(doc["id_restaurante"]),
+		EsRecogida:     toBool(doc["es_recogida"]),
+		IdEstadoPedido: toInt(doc["id_estado_pedido"]),
+		Total:          toFloat64(doc["total"]),
 	}
 	return order, nil
+}
+
+func toString(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	switch s := v.(type) {
+	case string:
+		return s
+	case primitive.ObjectID:
+		return s.Hex()
+	default:
+		return ""
+	}
+}
+
+func toBool(v interface{}) bool {
+	if v == nil {
+		return false
+	}
+	switch b := v.(type) {
+	case bool:
+		return b
+	default:
+		return false
+	}
+}
+
+func toFloat64(v interface{}) float64 {
+	if v == nil {
+		return 0
+	}
+	switch i := v.(type) {
+	case float64:
+		return i
+	case int32:
+		return float64(i)
+	case int:
+		return float64(i)
+	case int64:
+		return float64(i)
+	default:
+		return 0
+	}
+}
+
+func objectIDToString(v interface{}) string {
+	switch id := v.(type) {
+	case string:
+		return id
+	case primitive.ObjectID:
+		return id.Hex()
+	default:
+		return ""
+	}
 }
 
 func toInt(v interface{}) int {

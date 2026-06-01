@@ -101,8 +101,22 @@ func performSearch(c *gin.Context, query map[string]interface{}) {
 	}
 
 	var results []models.MenuItem
-	for _, hit := range r["hits"].(map[string]interface{})["hits"].([]interface{}) {
-		source := hit.(map[string]interface{})["_source"]
+	hitsObj, ok := r["hits"].(map[string]interface{})
+	if !ok {
+		c.JSON(http.StatusOK, results)
+		return
+	}
+	hits, ok := hitsObj["hits"].([]interface{})
+	if !ok {
+		c.JSON(http.StatusOK, results)
+		return
+	}
+	for _, hit := range hits {
+		hitMap, ok := hit.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		source := hitMap["_source"]
 		var item models.MenuItem
 		jsonBytes, _ := json.Marshal(source)
 		json.Unmarshal(jsonBytes, &item)

@@ -105,9 +105,43 @@
 ## 🚀 Fase 2: Análisis y Procesamiento OLAP
 
 ### 1. Arquitectura OLAP y Almacén de Datos (20%)
-- [ ] Diseñar esquema estrella o copo de nieve consolidando datos históricos de reservas, productos, pedidos y usuarios
-- [ ] Implementar Data Warehouse con Apache Hive
-- [ ] Crear 5+ cubos/vistas OLAP que permitan análisis agregados por tiempo, ubicación, tipo de producto y frecuencia de uso
+
+**Esquema:** Estrella (recomendado vs copo de nieve por dimensiones planas sin jerarquías profundas)
+
+#### 1.1 Infraestructura — Hive + Hadoop en Docker
+- [ ] Agregar servicios al `docker-compose.yml`:
+  - `hadoop-namenode` (HDFS NameNode, puerto 9870)
+  - `hadoop-datanode` (HDFS DataNode)
+  - `hive-metastore` (con Postgres como backend)
+  - `hive-server` (HiveServer2, puerto 10000)
+- [ ] Agregar healthchecks, dependencias y volúmenes persistentes para HDFS/Metastore
+- [ ] Crear `warehouse/.env` con variables de configuración de Hive
+
+#### 1.2 Esquema Estrella — Tablas Hive (DDL)
+- [ ] Crear `warehouse/ddl/dim_date.hql` — dimensión temporal (date_key, full_date, year, quarter, month, day, weekday, is_weekend)
+- [ ] Crear `warehouse/ddl/dim_user.hql` — (user_key, user_id, nombre, email, role_name)
+- [ ] Crear `warehouse/ddl/dim_restaurant.hql` — (restaurant_key, restaurant_id, nombre, direccion, ciudad, telefono)
+- [ ] Crear `warehouse/ddl/dim_product.hql` — (product_key, product_id, nombre, categoria, precio)
+- [ ] Crear `warehouse/ddl/dim_order_status.hql` — (status_key, status_name)
+- [ ] Crear `warehouse/ddl/dim_reservation_status.hql` — (status_key, status_name)
+- [ ] Crear `warehouse/ddl/fact_orders.hql` — (order_id, date_key, user_key, restaurant_key, status_key, total_amount, item_count)
+- [ ] Crear `warehouse/ddl/fact_order_details.hql` — (detail_id, order_id, product_key, quantity, unit_price, subtotal)
+- [ ] Crear `warehouse/ddl/fact_reservations.hql` — (reservation_id, date_key, user_key, restaurant_key, status_key, party_size)
+- [ ] Crear `warehouse/init_hive.sh` — script que ejecuta todas las DDL en orden contra HiveServer2
+
+#### 1.3 Pipeline ETL — Extraer, Transformar y Cargar
+- [ ] Crear `warehouse/etl/export_from_mongo.py` — extrae datos desde MongoDB (usuarios, restaurantes, platos, pedidos, reservas) usando PyMongo
+- [ ] Crear `warehouse/etl/transform_to_star.py` — transforma a modelo estrella (genera dimensiones, mapea IDs a surrogate keys, calcula métricas)
+- [ ] Crear `warehouse/etl/load_to_hive.py` — inserta datos transformados en Hive vía HiveServer2 (PyHive/impyla)
+- [ ] Crear `warehouse/etl/run_etl.py` — orquestador que ejecuta export → transform → load secuencialmente
+
+#### 1.4 Cubos/Vistas OLAP (5+)
+- [ ] Crear `warehouse/olap/v_ingresos_mensuales.hql` — Ingresos por mes y restaurante
+- [ ] Crear `warehouse/olap/v_ventas_por_categoria.hql` — Ventas por categoría de producto
+- [ ] Crear `warehouse/olap/v_reservas_por_ubicacion.hql` — Reservas por ubicación y fecha
+- [ ] Crear `warehouse/olap/v_tendencias_mensuales.hql` — Tasa de cancelación y crecimiento mensual
+- [ ] Crear `warehouse/olap/v_horarios_pico.hql` — Pedidos agrupados por hora del día
+- [ ] Crear `warehouse/olap/v_productividad_usuarios.hql` — Top usuarios por frecuencia y monto
 
 ### 2. Procesamiento con Apache Spark (20%)
 - [ ] Procesar grandes volúmenes de datos de órdenes, productos y reservas

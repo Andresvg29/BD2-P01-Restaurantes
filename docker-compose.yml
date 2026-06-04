@@ -254,6 +254,114 @@ services:
     depends_on:
       - db
 
+  # ── Hadoop HDFS ────────────────────────────────────────────────────────────
+  hadoop-namenode:
+    image: apache/hadoop:3.3.6
+    container_name: hadoop-namenode
+    hostname: hadoop-namenode
+    restart: always
+    environment:
+      HADOOP_ROLE: namenode
+      HDFS_NAMENODE_RPC_PORT: 9000
+      HDFS_NAMENODE_HTTP_PORT: 9870
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - hdfs_data:/hadoop/dfs/name
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9870 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks:
+      - default
+
+  hadoop-datanode:
+    image: apache/hadoop:3.3.6
+    container_name: hadoop-datanode
+    restart: always
+    environment:
+      HADOOP_ROLE: datanode
+      NAMENODE_HOST: hadoop-namenode
+      NAMENODE_RPC_PORT: 9000
+    volumes:
+      - hdfs_data:/hadoop/dfs/data
+    depends_on:
+      hadoop-namenode:
+        condition: service_healthy
+    networks:
+      - default
+
+  # ── Hive Metastore (backend: PostgreSQL) ───────────────────────────────────
+  hive-metastore-db:
+    image: postgres:16-alpine
+    container_name: hive-metastore-db
+    restart: always
+    environment:
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: hive
+      POSTGRES_DB: metastore
+    volumes:
+      - hive_metastore_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive -d metastore"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+
+  hive-metastore:
+    image: apache/hive:4.0.0
+    container_name: hive-metastore
+    hostname: hive-metastore
+    restart: always
+    command: --service metastore
+    environment:
+      DB_TYPE: postgres
+      DB_HOST: hive-metastore-db
+      DB_PORT: 5432
+      DB_DATABASE: metastore
+      DB_USER: hive
+      DB_PASSWORD: hive
+      HIVE_METASTORE_PORT: 9083
+      SERVICE_NAME: metastore
+    ports:
+      - "9083:9083"
+    depends_on:
+      hive-metastore-db:
+        condition: service_healthy
+    networks:
+      - default
+
+  hive-server:
+    image: apache/hive:4.0.0
+    container_name: hive-server
+    hostname: hive-server
+    restart: always
+    command: --service hiveserver2
+    environment:
+      DB_TYPE: postgres
+      DB_HOST: hive-metastore-db
+      DB_PORT: 5432
+      DB_DATABASE: metastore
+      DB_USER: hive
+      DB_PASSWORD: hive
+      HIVE_METASTORE_HOST: hive-metastore
+      HIVE_METASTORE_PORT: 9083
+      HIVE_SERVER2_THRIFT_PORT: 10000
+      SERVICE_NAME: hiveserver2
+    ports:
+      - "10000:10000"
+    depends_on:
+      hive-metastore:
+        condition: service_started
+      hadoop-namenode:
+        condition: service_healthy
+    networks:
+      - default
+
 volumes:
   postgres_data:
   keycloak_db_data:
@@ -263,6 +371,8 @@ volumes:
   configsvr_data:
   elasticsearch_data:
   redis_data:
+  hdfs_data:
+  hive_metastore_data:
 
 networks:
   mongo-cluster:

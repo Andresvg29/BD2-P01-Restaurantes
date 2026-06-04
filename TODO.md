@@ -108,14 +108,17 @@
 
 **Esquema:** Estrella (recomendado vs copo de nieve por dimensiones planas sin jerarquías profundas)
 
+**Stack:** Hadoop 3.3.6 + Hive 4.0.0 (imágenes `apache/hadoop`, `apache/hive`)
+
 #### 1.1 Infraestructura — Hive + Hadoop en Docker
-- [ ] Agregar servicios al `docker-compose.yml`:
-  - `hadoop-namenode` (HDFS NameNode, puerto 9870)
-  - `hadoop-datanode` (HDFS DataNode)
-  - `hive-metastore` (con Postgres como backend)
-  - `hive-server` (HiveServer2, puerto 10000)
-- [ ] Agregar healthchecks, dependencias y volúmenes persistentes para HDFS/Metastore
-- [ ] Crear `warehouse/.env` con variables de configuración de Hive
+- [x] Agregar servicios al `docker-compose.yml`:
+  - `hadoop-namenode` (HDFS NameNode, puerto 9870, vol. `hdfs_data`)
+  - `hadoop-datanode` (HDFS DataNode, depende de namenode)
+  - `hive-metastore` (PostgreSQL como backend, vol. `hive_metastore_data`)
+  - `hive-server` (HiveServer2, puerto 10000, depende de metastore)
+- [x] Conectar servicios a la red `default` existente para comunicación con API/MongoDB
+- [x] Agregar healthchecks, dependencias (`depends_on`) y volúmenes persistentes (`hdfs_data`, `hive_metastore_data`)
+- [x] Crear `warehouse/.env` con variables de configuración de Hive (HIVE_URL, METASTORE_DB_URL, HADOOP_FS)
 
 #### 1.2 Esquema Estrella — Tablas Hive (DDL)
 - [ ] Crear `warehouse/ddl/dim_date.hql` — dimensión temporal (date_key, full_date, year, quarter, month, day, weekday, is_weekend)
@@ -127,13 +130,29 @@
 - [ ] Crear `warehouse/ddl/fact_orders.hql` — (order_id, date_key, user_key, restaurant_key, status_key, total_amount, item_count)
 - [ ] Crear `warehouse/ddl/fact_order_details.hql` — (detail_id, order_id, product_key, quantity, unit_price, subtotal)
 - [ ] Crear `warehouse/ddl/fact_reservations.hql` — (reservation_id, date_key, user_key, restaurant_key, status_key, party_size)
-- [ ] Crear `warehouse/init_hive.sh` — script que ejecuta todas las DDL en orden contra HiveServer2
+- [ ] Crear `warehouse/init_hive.sh` — script que ejecuta DDLs en orden (dimensiones → hechos) contra HiveServer2
 
 #### 1.3 Pipeline ETL — Extraer, Transformar y Cargar
-- [ ] Crear `warehouse/etl/export_from_mongo.py` — extrae datos desde MongoDB (usuarios, restaurantes, platos, pedidos, reservas) usando PyMongo
-- [ ] Crear `warehouse/etl/transform_to_star.py` — transforma a modelo estrella (genera dimensiones, mapea IDs a surrogate keys, calcula métricas)
-- [ ] Crear `warehouse/etl/load_to_hive.py` — inserta datos transformados en Hive vía HiveServer2 (PyHive/impyla)
-- [ ] Crear `warehouse/etl/run_etl.py` — orquestador que ejecuta export → transform → load secuencialmente
+- [ ] Crear `warehouse/etl/export_from_mongo.py`:
+  - Conectar a MongoDB via PyMongo usando vars de entorno
+  - Extraer colecciones: `users`, `restaurants`, `menuitems`, `orders`, `reservations`
+  - Convertir `_id` ObjectId → string, fechas ISO, manejar campos anidados (detalles del pedido)
+  - Exportar a CSV temporales en `warehouse/etl/staging/`
+- [ ] Crear `warehouse/etl/transform_to_star.py`:
+  - Leer CSVs de staging
+  - Generar dimensiones: asignar surrogate keys auto-incrementales a cada dimensión
+  - Construir tabla de mapeo `original_id → surrogate_key` por dimensión
+  - Generar `dim_date` extrayendo componentes de fechas existentes en los datos
+  - Transformar fact tables mapeando cada foreign key a su surrogate key
+  - Calcular métricas derivadas: `total_amount`, `item_count`, `subtotal`
+  - Escribir CSVs finales en `warehouse/etl/output/`
+  - SCD Tipo 0 (no historizar por simplicidad)
+- [ ] Crear `warehouse/etl/load_to_hive.py`:
+  - Conectar a HiveServer2 via PyHive + thrift
+  - `LOAD DATA LOCAL INPATH` para cada dimensión y hecho
+  - Batch inserts para volumen moderado
+  - Verificar conteos post-carga
+- [ ] Crear `warehouse/etl/run_etl.py` — orquestador que ejecuta export → transform → load secuencialmente con logging y manejo de errores
 
 #### 1.4 Cubos/Vistas OLAP (5+)
 - [ ] Crear `warehouse/olap/v_ingresos_mensuales.hql` — Ingresos por mes y restaurante
@@ -143,51 +162,256 @@
 - [ ] Crear `warehouse/olap/v_horarios_pico.hql` — Pedidos agrupados por hora del día
 - [ ] Crear `warehouse/olap/v_productividad_usuarios.hql` — Top usuarios por frecuencia y monto
 
-### 2. Procesamiento con Apache Spark (20%)
-- [ ] Procesar grandes volúmenes de datos de órdenes, productos y reservas
-- [ ] Implementar transformaciones con Spark DataFrames y SparkSQL
-- [ ] Análisis: Tendencias de consumo
-- [ ] Análisis: Horarios pico
-- [ ] Análisis: Crecimiento mensual
+---
 
-### 3. Visualización de Datos (15%)
-- [ ] Configurar herramienta libre (Apache Superset / Metabase / Redash)
-- [ ] Dashboard 1: Ingresos por mes y categoría de producto
-- [ ] Dashboard 2: Actividad de clientes por zona geográfica
-- [ ] Dashboard 3: Estadísticas de pedidos completados vs cancelados
+### 2. Procesamiento con Apache Spark (20%)
+
+**Stack:** PySpark (Python) — integración natural con scripts ETL ya planeados. Imágenes `bitnami/spark:3.5`.
+
+#### 2.1 Infraestructura Spark en Docker
+- [ ] Agregar servicios al `docker-compose.yml`:
+  - `spark-master` (imagen `bitnami/spark:3.5`, modo master, puertos 8080 UI, 7077 workers)
+  - `spark-worker` (imagen `bitnami/spark:3.5`, modo worker, 2+ réplicas escalables)
+- [ ] Copiar `hive-site.xml` a Spark conf para integración Hive (acceder a tablas del warehouse)
+- [ ] Conectar a la red `default` para acceso a Hive Metastore
+
+#### 2.2 Análisis con Spark DataFrames y SparkSQL
+- [ ] Crear `spark/` directorio con los siguientes scripts PySpark:
+- [ ] **`analisis_tendencias.py`** — Tendencias de consumo:
+  - Cargar `fact_orders` + `dim_date` + `dim_product` vía SparkSQL/Hive
+  - DataFrames: ingresos por mes, top 10 productos más vendidos, categoría más popular por trimestre
+  - Output: CSV/JSON en `spark/output/tendencias/`
+- [ ] **`analisis_horarios.py`** — Horarios pico:
+  - SparkSQL: extraer `HOUR(fecha)` de pedidos, agrupar por hora y día de semana
+  - Identificar ventanas de alta demanda (peak hours)
+  - Output: CSV/JSON en `spark/output/horarios/`
+- [ ] **`analisis_crecimiento.py`** — Crecimiento mensual:
+  - Window functions de SparkSQL: `LAG()` para mes anterior, cálculo de % de crecimiento
+  - Métricas: crecimiento en ingresos, crecimiento en número de pedidos, tasa de cancelación mensual
+  - Output: CSV/JSON en `spark/output/crecimiento/`
+- [ ] Crear `spark/submit_jobs.sh` — script que envía los 3 análisis a `spark-submit` con `--master spark://spark-master:7077`
+
+---
+
+### 3. Visualización de Datos con Apache Superset (15%)
+
+**Stack:** Apache Superset (imagen `apache/superset`, puerto 8088). Conexión a Hive y SparkSQL como fuentes de datos.
+
+#### 3.1 Infraestructura
+- [ ] Agregar servicio `superset` al `docker-compose.yml`:
+  - Imagen: `apache/superset`
+  - Puerto: 8088
+  - Depende de: hive-server (para consultas)
+- [ ] Crear `superset/Dockerfile.superset`:
+  - FROM `apache/superset`
+  - Instalar drivers: `pyhive`, `thrift`, `thrift-sasl` para Hive
+  - Configurar `SUPERSET_SECRET_KEY`
+- [ ] Crear `superset/superset_config.py`:
+  - Conexiones a Hive (hive://hive-server:10000/default)
+  - Conexión a SparkSQL (hive://spark-master:10000/default) — si Spark Thrift Server está disponible
+- [ ] Crear `superset/init_superset.sh`:
+  - `superset fab create-admin` — usuario admin
+  - `superset db upgrade`
+  - `superset init`
+  - Importar dashboards pre-definidos
+
+#### 3.2 Dashboards
+- [ ] **Dashboard 1:** Ingresos por mes y categoría de producto
+  - Gráfico de barras: ingresos mensuales agrupados por categoría
+  - Gráfico de líneas: tendencia de ingresos totales (12 meses)
+  - Tabla de resumen: top 5 categorías por ingresos
+- [ ] **Dashboard 2:** Actividad de clientes por zona geográfica
+  - Mapa de calor (deck.gl): reservas y pedidos por ubicación de restaurante
+  - Barras apiladas: distribución de clientes por ciudad
+  - Big Number: total clientes activos
+- [ ] **Dashboard 3:** Estadísticas de pedidos completados vs cancelados
+  - Time-series: completados vs cancelados por mes
+  - Pie chart: proporción general completado/cancelado
+  - Tabla: tasa de cancelación por restaurante
+
+---
 
 ### 4. Orquestación con Apache Airflow (15%)
-- [ ] Diseñar DAG con flujo completo:
-  - Extracción: Obtener datos desde MongoDB o PostgreSQL
-  - Transformación: Procesar datos con Spark
-  - Carga: Insertar datos transformados en el Data Warehouse
-- [ ] Tarea de mantenimiento: Reindexar ElasticSearch si se detectan cambios en el catálogo de productos
+
+**Stack:** Apache Airflow 2.8 (imagen `apache/airflow:2.8`). Scheduler + Webserver + Worker. DAG ETL diario.
+
+#### 4.1 Infraestructura
+- [ ] Agregar servicios al `docker-compose.yml`:
+  - `airflow-db` (PostgreSQL 16 para metadatos de Airflow)
+  - `airflow-webserver` (puerto 8080, imagen extendida con dependencias)
+  - `airflow-scheduler` (misma imagen, comando scheduler)
+  - `airflow-worker` (misma imagen, comando celery worker)
+- [ ] Crear `airflow/Dockerfile`:
+  - FROM `apache/airflow:2.8`
+  - Instalar: `apache-airflow-providers-apache-spark`, `pymongo`, `pyhive`, `thrift`, `elasticsearch`
+- [ ] Crear conexiones pre-configuradas en `airflow/connections.yaml`:
+  - `mongo_default`, `hive_default`, `spark_default`, `elasticsearch_default`
+
+#### 4.2 DAG de ETL Completo
+- [ ] Crear `airflow/dags/etl_pipeline.py` — DAG con ejecución diaria:
+  1. **`extract_mongo`** → BashOperator: ejecuta `warehouse/etl/export_from_mongo.py`
+  2. **`transform_star`** → BashOperator: ejecuta `warehouse/etl/transform_to_star.py`
+  3. **`load_hive`** → BashOperator: ejecuta `warehouse/etl/load_to_hive.py`
+  4. **`spark_tendencias`** → SparkSubmitOperator: envía `spark/analisis_tendencias.py`
+  5. **`spark_horarios`** → SparkSubmitOperator: envía `spark/analisis_horarios.py`
+  6. **`spark_crecimiento`** → SparkSubmitOperator: envía `spark/analisis_crecimiento.py`
+  7. **`reindex_elasticsearch`** → PythonOperator: llama a `POST /search/reindex` mediante `HttpHook`
+  - Dependencias secuenciales: extract → transform → load → (spark_* en paralelo) → reindex
+  - Retry: 2 reintentos con backoff de 5 min
+  - Alertas: email/slack opcional
+- [ ] Crear `airflow/dags/config.py` — constantes de conexión y schedule (`@daily`)
+
+---
 
 ### 5. Neo4J para Análisis de Grafos y Rutas (15%)
-- [ ] Modelar relación usuarios, productos y pedidos en estructura de grafo
-- [ ] Identificar patrones de co-compra y usuarios influyentes en el sistema de recomendaciones
-- [ ] Simular y optimizar rutas de entrega usando geonodos y relaciones de distancia/tiempo estimado
-- [ ] Consulta Cypher: Top 5 productos más comprados juntos
-- [ ] Consulta Cypher: Usuarios que recomiendan a otros
-- [ ] Consulta Cypher: Caminos mínimos entre ubicaciones para reparto eficiente
+
+**Stack:** Neo4j 5 Community + plugin APOC (imagen `neo4j:5-community`, puertos 7474 HTTP, 7687 Bolt).
+
+#### 5.1 Infraestructura
+- [ ] Agregar servicio `neo4j` al `docker-compose.yml`:
+  - Imagen: `neo4j:5-community`
+  - Puertos: 7474:7474 (HTTP Browser), 7687:7687 (Bolt)
+  - Variables de entorno: `NEO4J_PLUGINS=["apoc"]`, `NEO4J_AUTH=neo4j/password`
+  - Volumen: `neo4j_data` para persistencia
+
+#### 5.2 Modelo de Grafo
+- [ ] Crear `neo4j/` directorio con:
+  - `import_data.py` — script Python que exporta desde MongoDB/PostgreSQL a CSVs de nodos y relaciones
+  - `load_schema.cypher` — crea constraints, índices y carga CSVs
+- [ ] **Nodos:**
+  ```cypher
+  (:User {user_id, nombre, email})
+  (:Product {product_id, nombre, categoria, precio})
+  (:Restaurant {restaurant_id, nombre, direccion, lat, lon})
+  (:Order {order_id, total_amount, fecha})
+  (:Reservation {reservation_id, fecha, party_size})
+  (:Location {location_id, lat, lon, address})
+  ```
+- [ ] **Relaciones:**
+  ```cypher
+  (u:User)-[:PLACED {fecha}]->(o:Order)
+  (o:Order)-[:INCLUDES {cantidad, subtotal}]->(p:Product)
+  (o:Order)-[:AT]->(r:Restaurant)
+  (u:User)-[:MADE_RESERVATION]->(res:Reservation)
+  (res:Reservation)-[:AT]->(r:Restaurant)
+  (r:Restaurant)-[:LOCATED_AT]->(l:Location)
+  (l1:Location)-[:ROAD {distance_km}]->(l2:Location)
+  ```
+
+#### 5.3 Consultas Cypher
+- [ ] **Top 5 productos más comprados juntos (co-compra):**
+  ```cypher
+  MATCH (p1:Product)<-[:INCLUDES]-(o:Order)-[:INCLUDES]->(p2:Product)
+  WHERE p1 <> p2
+  RETURN p1.nombre, p2.nombre, COUNT(*) AS frecuencia
+  ORDER BY frecuencia DESC LIMIT 5
+  ```
+- [ ] **Usuarios que recomiendan a otros (compra misma categoría + mismo restaurante):**
+  ```cypher
+  MATCH (u1:User)-[:PLACED]->(:Order)-[:AT]->(r:Restaurant),
+        (u2:User)-[:PLACED]->(:Order)-[:AT]->(r)
+  WHERE u1 <> u2
+  RETURN u1.nombre, u2.nombre, COUNT(*) AS afinidad
+  ORDER BY afinidad DESC LIMIT 10
+  ```
+- [ ] **Caminos mínimos entre ubicaciones para reparto eficiente:**
+  ```cypher
+  MATCH (a:Location {location_id: $origen}),
+        (b:Location {location_id: $destino}),
+        p = shortestPath((a)-[:ROAD*]-(b))
+  RETURN [n IN nodes(p) | n.address] AS ruta,
+         reduce(acc = 0, r IN relationships(p) | acc + r.distance_km) AS distancia_total
+  ```
+- [ ] **Usuarios influyentes (PageRank con GDS opcional):**
+  ```cypher
+  CALL gds.pageRank.stream('user-product-graph')
+  YIELD nodeId, score
+  RETURN gds.util.asNode(nodeId).nombre AS usuario, score
+  ORDER BY score DESC LIMIT 5
+  ```
+
+---
 
 ### 6. Asignación de Rutas de Entrega (10%)
-- [ ] Diseñar módulo para simular rutas de entrega basadas en geolocalización de clientes
-- [ ] Implementar heurística (vecino más cercano / consultas Neo4J para caminos óptimos)
-- [ ] Mostrar rutas optimizadas y asignaciones correspondientes por repartidor
 
-### 7. Pruebas y Validaciones
-- [ ] Verificar integridad y consistencia de datos almacenados en el warehouse
-- [ ] Validar ejecución periódica y robustez del pipeline orquestado con Airflow
-- [ ] Validar resultados analíticos de Spark y Neo4J mediante consultas y reportes exportables
+#### 6.1 Datos Geoespaciales
+- [ ] Generar coordenadas ficticias para restaurantes en San José, Costa Rica:
+  - Crear `scripts/generate_geo.py` — asigna lat/lon aleatorios pero realistas (9.92-9.94, -84.08--84.10) a cada restaurante basado en su dirección
+  - Almacenar en Neo4j como nodos `(:Location)` y en MongoDB como campo `ubicacion`
+- [ ] Crear relación `[:ROAD]` entre ubicaciones cercanas (< 5km) con distancia Haversine calculada
+  ```cypher
+  MATCH (a:Location), (b:Location)
+  WHERE a <> b AND point.distance(a.point, b.point) < 5000
+  MERGE (a)-[:ROAD {distance_km: round(point.distance(a.point, b.point)/1000, 1)}]->(b)
+  ```
+
+#### 6.2 Heurística de Enrutamiento
+- [ ] Implementar endpoint `GET /api/delivery/routes` (handler en Go):
+  - Query params: `desde=restaurant_id`, `hasta=order_id` (obtiene dirección del cliente)
+  - Parámetro opcional: `algoritmo=nearest|cypher`
+- [ ] **Algoritmo Vecino Más Cercano (Go puro):**
+  - Obtener lista de Location IDs desde Neo4j
+  - Implementar TSP greedy: desde el origen, visitar siempre la Location más cercana no visitada
+  - Retornar ruta ordenada + distancia total
+- [ ] **Algoritmo Cypher ShortestPath:**
+  - Delegar a la consulta Neo4j de camino mínimo
+  - Usar driver Go `neo4j/neo4j-go-driver` para ejecutar la consulta
+- [ ] Respuesta JSON: `{ruta: [{direccion, lat, lon, orden}], distancia_total_km, algoritmo_usado}`
+- [ ] Asignación por repartidor: agrupar rutas por zona (clustering simple por grilla de 2x2km)
+
+#### 6.3 Integración con Neo4j desde Go
+- [ ] Agregar driver Neo4j a `go.mod`: `github.com/neo4j/neo4j-go-driver/v5`
+- [ ] Crear `repository/neo4j.go` — cliente Neo4j singleton
+- [ ] Crear `handlers/delivery.go` — handler del endpoint `/api/delivery/routes`
+- [ ] Registrar ruta en `api/main.go` (requiere JWT + rol admin)
+
+---
+
+### 7. Pruebas y Validaciones OLAP
+
+#### 7.1 Validación de Datos en Warehouse
+- [ ] Verificar integridad: `SELECT COUNT(*)` en MongoDB vs `SELECT COUNT(*)` en Hive para cada tabla
+- [ ] Validar que surrogate keys en fact tables tengan correspondencia en dimensiones (no nulos, no huérfanos)
+- [ ] Verificar que `fact_orders.total_amount = SUM(fact_order_details.subtotal)` (por order_id)
+- [ ] Validar unicidad de surrogate keys en cada dimensión
+
+#### 7.2 Validación del Pipeline ETL
+- [ ] Ejecución completa: `python warehouse/etl/run_etl.py` sin errores
+- [ ] Prueba de idempotencia: ejecutar ETL 2 veces seguidas (debe truncar y recargar sin duplicados)
+- [ ] Prueba de graceful degradation: si MongoDB no responde, script falla con mensaje claro (no crash silencioso)
+
+#### 7.3 Validación de Análisis Spark
+- [ ] Los 3 scripts PySpark se ejecutan sin excepción contra datos reales
+- [ ] Outputs contienen datos no vacíos con formato esperado (CSV con cabeceras)
+- [ ] Validación manual: cruzar resultados Spark contra queries SQL directas en Hive
+
+#### 7.4 Validación de Neo4j
+- [ ] Las 3 consultas Cypher devuelven resultados no vacíos
+- [ ] La consulta de camino mínimo retorna una ruta válida (secuencia de nodos conectados)
+- [ ] Prueba de co-compra: verificar que los pares devueltos tienen sentido lógico
+
+#### 7.5 Validación de Airflow
+- [ ] Trigger manual del DAG: todas las tareas completan en verde
+- [ ] Logs de cada tarea sin errores
+- [ ] Validar que el DAG respeta dependencias (no ejecuta transform antes de extract)
+
+#### 7.6 Prueba de Integración Completa
+- [ ] Crear `scripts/verify_all.sh` — script que ejecuta validaciones secuencialmente y reporta PASS/FAIL
+
+---
 
 ### 8. Entregables
-- [ ] Código fuente completo y definición del DAG de Airflow
-- [ ] Scripts o notebooks desarrollados para Spark
-- [ ] Dashboards configurados y listos para exportar
-- [ ] Consultas Cypher y documentación de la estructura del grafo
-- [ ] Capturas de pantalla o video demostrativo del funcionamiento
-- [ ] Documentación técnica en PDF (flujo de datos, decisiones arquitectónicas, ejemplos)
+
+| Entregable | Descripción | Ubicación |
+|---|---|---|
+| Código fuente completo | Todo el código de la Fase 2 integrado al repositorio | `warehouse/`, `spark/`, `superset/`, `airflow/`, `neo4j/` |
+| DAG de Airflow | Definición del DAG ETL con 7 tareas | `airflow/dags/etl_pipeline.py` |
+| Scripts PySpark | 3 análisis de datos con DataFrames + SparkSQL | `spark/analisis_*.py` |
+| Dashboards Superset | 3 dashboards exportados como JSON para importación | `superset/dashboards/` |
+| Consultas Cypher | 4 consultas documentadas con resultados esperados | `neo4j/consultas.cypher` |
+| Rutas de Entrega | Endpoint `/api/delivery/routes` con 2 algoritmos | `handlers/delivery.go`, `repository/neo4j.go` |
+| Capturas de pantalla / video | Demostración del sistema funcionando | `docs/capturas/` o externo |
+| Documentación técnica PDF | Flujo de datos, decisiones arquitectónicas, ejemplos de uso | `docs/`
 
 ---
 

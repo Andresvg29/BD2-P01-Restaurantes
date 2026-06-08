@@ -121,16 +121,16 @@
 - [x] Crear `warehouse/.env` con variables de configuración de Hive (HIVE_URL, METASTORE_DB_URL, HADOOP_FS)
 
 #### 1.2 Esquema Estrella — Tablas Hive (DDL)
-- [ ] Crear `warehouse/ddl/dim_date.hql` — dimensión temporal (date_key, full_date, year, quarter, month, day, weekday, is_weekend)
-- [ ] Crear `warehouse/ddl/dim_user.hql` — (user_key, user_id, nombre, email, role_name)
-- [ ] Crear `warehouse/ddl/dim_restaurant.hql` — (restaurant_key, restaurant_id, nombre, direccion, ciudad, telefono)
-- [ ] Crear `warehouse/ddl/dim_product.hql` — (product_key, product_id, nombre, categoria, precio)
-- [ ] Crear `warehouse/ddl/dim_order_status.hql` — (status_key, status_name)
-- [ ] Crear `warehouse/ddl/dim_reservation_status.hql` — (status_key, status_name)
-- [ ] Crear `warehouse/ddl/fact_orders.hql` — (order_id, date_key, user_key, restaurant_key, status_key, total_amount, item_count)
-- [ ] Crear `warehouse/ddl/fact_order_details.hql` — (detail_id, order_id, product_key, quantity, unit_price, subtotal)
-- [ ] Crear `warehouse/ddl/fact_reservations.hql` — (reservation_id, date_key, user_key, restaurant_key, status_key, party_size)
-- [ ] Crear `warehouse/init_hive.sh` — script que ejecuta DDLs en orden (dimensiones → hechos) contra HiveServer2
+- [x] Crear `warehouse/ddl/dim_date.hql` — dimensión temporal (date_key, full_date, year, quarter, month, day, weekday, is_weekend)
+- [x] Crear `warehouse/ddl/dim_user.hql` — (user_key, user_id, nombre, email, role_name)
+- [x] Crear `warehouse/ddl/dim_restaurant.hql` — (restaurant_key, restaurant_id, nombre, direccion, ciudad, telefono)
+- [x] Crear `warehouse/ddl/dim_product.hql` — (product_key, product_id, nombre, categoria, precio)
+- [x] Crear `warehouse/ddl/dim_order_status.hql` — (status_key, status_name)
+- [x] Crear `warehouse/ddl/dim_reservation_status.hql` — (status_key, status_name)
+- [x] Crear `warehouse/ddl/fact_orders.hql` — (order_id, date_key, user_key, restaurant_key, status_key, total_amount, item_count)
+- [x] Crear `warehouse/ddl/fact_order_details.hql` — (detail_id, order_id, product_key, quantity, unit_price, subtotal)
+- [x] Crear `warehouse/ddl/fact_reservations.hql` — (reservation_id, date_key, user_key, restaurant_key, status_key, party_size)
+- [x] Crear `warehouse/init_hive.sh` — script que ejecuta DDLs en orden (dimensiones → hechos) contra HiveServer2
 
 #### 1.3 Pipeline ETL — Extraer, Transformar y Cargar
 - [ ] Crear `warehouse/etl/export_from_mongo.py`:

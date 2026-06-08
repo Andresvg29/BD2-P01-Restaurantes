@@ -254,23 +254,23 @@ services:
     depends_on:
       - db
 
-  # ── Hadoop HDFS ────────────────────────────────────────────────────────────
+  #Hadoop HDFS
   hadoop-namenode:
     image: apache/hadoop:3.3.6
     container_name: hadoop-namenode
-    hostname: hadoop-namenode
+    hostname: ${HADOOP_NAMENODE_HOST}
     restart: always
     environment:
       HADOOP_ROLE: namenode
-      HDFS_NAMENODE_RPC_PORT: 9000
-      HDFS_NAMENODE_HTTP_PORT: 9870
+      HDFS_NAMENODE_RPC_PORT: ${HADOOP_NAMENODE_PORT}
+      HDFS_NAMENODE_HTTP_PORT: ${HADOOP_NAMENODE_HTTP_PORT}
     ports:
-      - "9870:9870"
-      - "9000:9000"
+      - "${HADOOP_NAMENODE_HTTP_PORT}:${HADOOP_NAMENODE_HTTP_PORT}"
+      - "${HADOOP_NAMENODE_PORT}:${HADOOP_NAMENODE_PORT}"
     volumes:
       - hdfs_data:/hadoop/dfs/name
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9870 || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:${HADOOP_NAMENODE_HTTP_PORT} || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
@@ -283,8 +283,8 @@ services:
     restart: always
     environment:
       HADOOP_ROLE: datanode
-      NAMENODE_HOST: hadoop-namenode
-      NAMENODE_RPC_PORT: 9000
+      NAMENODE_HOST: ${HADOOP_NAMENODE_HOST}
+      NAMENODE_RPC_PORT: ${HADOOP_NAMENODE_PORT}
     volumes:
       - hdfs_data:/hadoop/dfs/data
     depends_on:
@@ -293,19 +293,19 @@ services:
     networks:
       - default
 
-  # ── Hive Metastore (backend: PostgreSQL) ───────────────────────────────────
+  #Hive Metastore (backend: PostgreSQL)
   hive-metastore-db:
     image: postgres:16-alpine
     container_name: hive-metastore-db
     restart: always
     environment:
-      POSTGRES_USER: hive
-      POSTGRES_PASSWORD: hive
-      POSTGRES_DB: metastore
+      POSTGRES_USER: ${METASTORE_DB_USER}
+      POSTGRES_PASSWORD: ${METASTORE_DB_PASSWORD}
+      POSTGRES_DB: ${METASTORE_DB_DATABASE}
     volumes:
       - hive_metastore_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hive -d metastore"]
+      test: ["CMD-SHELL", "pg_isready -U ${METASTORE_DB_USER} -d ${METASTORE_DB_DATABASE}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -315,20 +315,20 @@ services:
   hive-metastore:
     image: apache/hive:4.0.0
     container_name: hive-metastore
-    hostname: hive-metastore
+    hostname: ${HIVE_METASTORE_HOST}
     restart: always
     command: --service metastore
     environment:
       DB_TYPE: postgres
-      DB_HOST: hive-metastore-db
-      DB_PORT: 5432
-      DB_DATABASE: metastore
-      DB_USER: hive
-      DB_PASSWORD: hive
-      HIVE_METASTORE_PORT: 9083
+      DB_HOST: ${METASTORE_DB_HOST}
+      DB_PORT: ${METASTORE_DB_PORT}
+      DB_DATABASE: ${METASTORE_DB_DATABASE}
+      DB_USER: ${METASTORE_DB_USER}
+      DB_PASSWORD: ${METASTORE_DB_PASSWORD}
+      HIVE_METASTORE_PORT: ${HIVE_METASTORE_PORT}
       SERVICE_NAME: metastore
     ports:
-      - "9083:9083"
+      - "${HIVE_METASTORE_PORT}:${HIVE_METASTORE_PORT}"
     depends_on:
       hive-metastore-db:
         condition: service_healthy
@@ -343,17 +343,17 @@ services:
     command: --service hiveserver2
     environment:
       DB_TYPE: postgres
-      DB_HOST: hive-metastore-db
-      DB_PORT: 5432
-      DB_DATABASE: metastore
-      DB_USER: hive
-      DB_PASSWORD: hive
-      HIVE_METASTORE_HOST: hive-metastore
-      HIVE_METASTORE_PORT: 9083
-      HIVE_SERVER2_THRIFT_PORT: 10000
+      DB_HOST: ${METASTORE_DB_HOST}
+      DB_PORT: ${METASTORE_DB_PORT}
+      DB_DATABASE: ${METASTORE_DB_DATABASE}
+      DB_USER: ${METASTORE_DB_USER}
+      DB_PASSWORD: ${METASTORE_DB_PASSWORD}
+      HIVE_METASTORE_HOST: ${HIVE_METASTORE_HOST}
+      HIVE_METASTORE_PORT: ${HIVE_METASTORE_PORT}
+      HIVE_SERVER2_THRIFT_PORT: ${HIVE_PORT}
       SERVICE_NAME: hiveserver2
     ports:
-      - "10000:10000"
+      - "${HIVE_PORT}:${HIVE_PORT}"
     depends_on:
       hive-metastore:
         condition: service_started

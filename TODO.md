@@ -133,26 +133,25 @@
 - [x] Crear `warehouse/init_hive.sh` — script que ejecuta DDLs en orden (dimensiones → hechos) contra HiveServer2
 
 #### 1.3 Pipeline ETL — Extraer, Transformar y Cargar
-- [ ] Crear `warehouse/etl/export_from_mongo.py`:
-  - Conectar a MongoDB via PyMongo usando vars de entorno
-  - Extraer colecciones: `users`, `restaurants`, `menuitems`, `orders`, `reservations`
-  - Convertir `_id` ObjectId → string, fechas ISO, manejar campos anidados (detalles del pedido)
+
+**Nota:** La transformación a modelo estrella se realiza con **Spark** (job `spark/etl_to_star.py`), no con Python puro. El script Python solo extrae los datos crudos a CSV. Spark lee los CSVs, transforma a estrella y escribe directamente en Hive.
+
+- [x] Refactorizar `warehouse/etl/export_from_mongo.py` → `export_data.py`:
+  - Detectar `DB_ENGINE` del .env para elegir fuente
+  - Rama MongoDB: conectar via PyMongo, extraer `usuarios`, `restaurantes`, `platos`, `pedidos` (+ detalles), `reservas`
+  - Rama PostgreSQL: conectar via `psycopg2`, extraer mismas tablas con `SELECT *`
+  - Convertir `_id`/UUID → string, fechas ISO, manejar campos anidados (detalles del pedido)
   - Exportar a CSV temporales en `warehouse/etl/staging/`
-- [ ] Crear `warehouse/etl/transform_to_star.py`:
-  - Leer CSVs de staging
-  - Generar dimensiones: asignar surrogate keys auto-incrementales a cada dimensión
-  - Construir tabla de mapeo `original_id → surrogate_key` por dimensión
-  - Generar `dim_date` extrayendo componentes de fechas existentes en los datos
-  - Transformar fact tables mapeando cada foreign key a su surrogate key
-  - Calcular métricas derivadas: `total_amount`, `item_count`, `subtotal`
-  - Escribir CSVs finales en `warehouse/etl/output/`
-  - SCD Tipo 0 (no historizar por simplicidad)
-- [ ] Crear `warehouse/etl/load_to_hive.py`:
-  - Conectar a HiveServer2 via PyHive + thrift
-  - `LOAD DATA LOCAL INPATH` para cada dimensión y hecho
-  - Batch inserts para volumen moderado
-  - Verificar conteos post-carga
-- [ ] Crear `warehouse/etl/run_etl.py` — orquestador que ejecuta export → transform → load secuencialmente con logging y manejo de errores
+  - Eliminado `export_from_mongo.py` original (reemplazado)
+
+- [x] ~~Crear `warehouse/etl/transform_to_star.py`~~ → **Reemplazado por `spark/etl_to_star.py`** (ver punto 2.2). Archivo eliminado.
+
+- [x] ~~Crear `warehouse/etl/load_to_hive.py`~~ → **Ya no es necesario. Spark escribe directo en Hive con `df.write.saveAsTable()`**. Archivo eliminado.
+
+- [x] Actualizar `warehouse/etl/run_etl.py`:
+  - Orquestador local que ejecuta: export_data.py (Python) → spark-submit etl_to_star.py (Spark → Hive, si SPARK_HOME está disponible)
+  - Mantener logging con timestamp y exit codes
+  - En producción, Airflow reemplaza a este orquestador
 
 #### 1.4 Cubos/Vistas OLAP (5+)
 - [ ] Crear `warehouse/olap/v_ingresos_mensuales.hql` — Ingresos por mes y restaurante
@@ -175,21 +174,44 @@
 - [ ] Copiar `hive-site.xml` a Spark conf para integración Hive (acceder a tablas del warehouse)
 - [ ] Conectar a la red `default` para acceso a Hive Metastore
 
-#### 2.2 Análisis con Spark DataFrames y SparkSQL
-- [ ] Crear `spark/` directorio con los siguientes scripts PySpark:
-- [ ] **`analisis_tendencias.py`** — Tendencias de consumo:
+#### 2.2 Jobs PySpark
+
+##### Job 1: Transformación ETL — `spark/etl_to_star.py`
+- [ ] Crear **`spark/etl_to_star.py`** (reemplaza a `transform_to_star.py` y `load_to_hive.py`):
+  - Leer CSVs de `warehouse/etl/staging/` con `spark.read.csv()`
+  - Generar dimensiones con surrogate keys (`monotonically_increasing_id` o `row_number()`)
+  - Construir mapeo `original_id → surrogate_key` con broadcast joins
+  - Generar `dim_date` desde fechas en los datos usando SparkSQL
+  - Transformar fact tables mapeando FKs con joins
+  - Calcular métricas: `total_amount`, `item_count`, `subtotal`
+  - **Escribir directamente en Hive** con `df.write.mode("overwrite").saveAsTable("nombre_tabla")`
+  - Reparar particiones con `MSCK REPAIR TABLE` vía SparkSQL
+  - SCD Tipo 0 (no historizar)
+
+##### Job 2: Análisis de Tendencias — `spark/analisis_tendencias.py`
+- [ ] Crear **`spark/analisis_tendencias.py`** — Tendencias de consumo:
   - Cargar `fact_orders` + `dim_date` + `dim_product` vía SparkSQL/Hive
   - DataFrames: ingresos por mes, top 10 productos más vendidos, categoría más popular por trimestre
   - Output: CSV/JSON en `spark/output/tendencias/`
-- [ ] **`analisis_horarios.py`** — Horarios pico:
+
+##### Job 3: Análisis de Horarios — `spark/analisis_horarios.py`
+- [ ] Crear **`spark/analisis_horarios.py`** — Horarios pico:
   - SparkSQL: extraer `HOUR(fecha)` de pedidos, agrupar por hora y día de semana
   - Identificar ventanas de alta demanda (peak hours)
   - Output: CSV/JSON en `spark/output/horarios/`
-- [ ] **`analisis_crecimiento.py`** — Crecimiento mensual:
+
+##### Job 4: Análisis de Crecimiento — `spark/analisis_crecimiento.py`
+- [ ] Crear **`spark/analisis_crecimiento.py`** — Crecimiento mensual:
   - Window functions de SparkSQL: `LAG()` para mes anterior, cálculo de % de crecimiento
   - Métricas: crecimiento en ingresos, crecimiento en número de pedidos, tasa de cancelación mensual
   - Output: CSV/JSON en `spark/output/crecimiento/`
-- [ ] Crear `spark/submit_jobs.sh` — script que envía los 3 análisis a `spark-submit` con `--master spark://spark-master:7077`
+
+#### 2.3 Script de envío
+- [ ] Crear `spark/submit_jobs.sh` — script que envía los 4 jobs a `spark-submit`:
+  ```bash
+  spark-submit --master spark://spark-master:7077 spark/etl_to_star.py
+  spark-submit --master spark://spark-master:7077 spark/analisis_tendencias.py
+  ...
 
 ---
 
@@ -249,17 +271,19 @@
 
 #### 4.2 DAG de ETL Completo
 - [ ] Crear `airflow/dags/etl_pipeline.py` — DAG con ejecución diaria:
-  1. **`extract_mongo`** → BashOperator: ejecuta `warehouse/etl/export_from_mongo.py`
-  2. **`transform_star`** → BashOperator: ejecuta `warehouse/etl/transform_to_star.py`
-  3. **`load_hive`** → BashOperator: ejecuta `warehouse/etl/load_to_hive.py`
-  4. **`spark_tendencias`** → SparkSubmitOperator: envía `spark/analisis_tendencias.py`
-  5. **`spark_horarios`** → SparkSubmitOperator: envía `spark/analisis_horarios.py`
-  6. **`spark_crecimiento`** → SparkSubmitOperator: envía `spark/analisis_crecimiento.py`
-  7. **`reindex_elasticsearch`** → PythonOperator: llama a `POST /search/reindex` mediante `HttpHook`
-  - Dependencias secuenciales: extract → transform → load → (spark_* en paralelo) → reindex
+  1. **`extract_data`** → BashOperator: ejecuta `warehouse/etl/export_data.py` (extrae de MongoDB o PostgreSQL según `DB_ENGINE`)
+  2. **`etl_to_star`** → SparkSubmitOperator: envía `spark/etl_to_star.py` (Spark lee CSVs de staging/, transforma a estrella y escribe en Hive)
+  3. **`analisis_tendencias`** → SparkSubmitOperator: envía `spark/analisis_tendencias.py` (en paralelo con los otros análisis)
+  4. **`analisis_horarios`** → SparkSubmitOperator: envía `spark/analisis_horarios.py` (en paralelo)
+  5. **`analisis_crecimiento`** → SparkSubmitOperator: envía `spark/analisis_crecimiento.py` (en paralelo)
+  6. **`reindex_elasticsearch`** → PythonOperator: reindexado condicional vía MD5 hash
+     - Calcular MD5 de `warehouse/etl/staging/platos.csv` después de `extract_data`
+     - Comparar con hash almacenado en `warehouse/etl/staging/.last_platos_hash`
+     - Si cambió → ejecutar `POST /search/reindex` via HttpHook, persistir nuevo hash en `.last_platos_hash`
+     - Si no cambió → skipear la tarea (BranchPythonOperator que la omite)
+  - Dependencias: extract_data → etl_to_star → (tendencias, horarios, crecimiento en paralelo) → reindex
   - Retry: 2 reintentos con backoff de 5 min
   - Alertas: email/slack opcional
-- [ ] Crear `airflow/dags/config.py` — constantes de conexión y schedule (`@daily`)
 
 ---
 
@@ -406,7 +430,7 @@
 |---|---|---|
 | Código fuente completo | Todo el código de la Fase 2 integrado al repositorio | `warehouse/`, `spark/`, `superset/`, `airflow/`, `neo4j/` |
 | DAG de Airflow | Definición del DAG ETL con 7 tareas | `airflow/dags/etl_pipeline.py` |
-| Scripts PySpark | 3 análisis de datos con DataFrames + SparkSQL | `spark/analisis_*.py` |
+| Scripts PySpark | 4 scripts: etl_to_star + 3 análisis con DataFrames + SparkSQL | `spark/` |
 | Dashboards Superset | 3 dashboards exportados como JSON para importación | `superset/dashboards/` |
 | Consultas Cypher | 4 consultas documentadas con resultados esperados | `neo4j/consultas.cypher` |
 | Rutas de Entrega | Endpoint `/api/delivery/routes` con 2 algoritmos | `handlers/delivery.go`, `repository/neo4j.go` |

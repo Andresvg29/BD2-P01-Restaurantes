@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS fact_orders (
     order_id        STRING
   , date_key        INT
+  , hora            INT
   , user_key        INT
   , restaurant_key  INT
   , status_key      INT

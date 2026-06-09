@@ -153,13 +153,22 @@
   - Mantener logging con timestamp y exit codes
   - En producción, Airflow reemplaza a este orquestador
 
-#### 1.4 Cubos/Vistas OLAP (5+)
-- [ ] Crear `warehouse/olap/v_ingresos_mensuales.hql` — Ingresos por mes y restaurante
-- [ ] Crear `warehouse/olap/v_ventas_por_categoria.hql` — Ventas por categoría de producto
-- [ ] Crear `warehouse/olap/v_reservas_por_ubicacion.hql` — Reservas por ubicación y fecha
-- [ ] Crear `warehouse/olap/v_tendencias_mensuales.hql` — Tasa de cancelación y crecimiento mensual
-- [ ] Crear `warehouse/olap/v_horarios_pico.hql` — Pedidos agrupados por hora del día
-- [ ] Crear `warehouse/olap/v_productividad_usuarios.hql` — Top usuarios por frecuencia y monto
+#### 1.4 Cubos/Vistas OLAP (6 vistas + mejoras)
+
+**Mejoras al esquema base (soporte para hora):**
+- [x] Agregar columna `hora INT` a `warehouse/ddl/fact_orders.hql` — necesaria para análisis de horarios pico
+- [ ] Actualizar `spark/etl_to_star.py` para extraer `HOUR(timestamp)` del pedido y poblar `fact_orders.hora` *(pendiente hasta crear spark/etl_to_star.py en 2.2)*
+
+**Vistas OLAP (6):**
+- [x] Crear `warehouse/olap/v_ingresos_mensuales.hql` — Ingresos, pedidos y ticket promedio por mes + restaurante (JOIN fact_orders + dim_date + dim_restaurant)
+- [x] Crear `warehouse/olap/v_ventas_por_categoria.hql` — Unidades vendidas, ingresos y ranking por categoría (RANK() OVER ingresos DESC)
+- [x] Crear `warehouse/olap/v_reservas_por_ubicacion.hql` — Reservas y comensales por ciudad + mes (JOIN fact_reservations + dim_date + dim_restaurant)
+- [x] Crear `warehouse/olap/v_tendencias_mensuales.hql` — Cancelaciones, usuarios activos y crecimiento % mensual con LAG()
+- [x] Crear `warehouse/olap/v_horarios_pico.hql` — Pedidos agrupados por hora real y día de semana (usa columna `hora` de fact_orders)
+- [x] Crear `warehouse/olap/v_productividad_usuarios.hql` — Top usuarios con segmentación: VIP (top 20%), Frecuente, Ocasional por percentil de gasto
+
+**Script de inicialización:**
+- [x] Crear `warehouse/init_olap_views.sh` — ejecuta los 6 .hql contra HiveServer2 después del esquema base
 
 ---
 

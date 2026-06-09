@@ -58,7 +58,7 @@ def run_spark_job(job_name, job_path):
         log(f"  ⚠ {submit} no encontrado. Omitiendo {job_name}.")
         return True
 
-    log(f"▶ {description}...")
+    log(f"▶ {job_name}...")
     result = subprocess.run(
         [submit, "--master", "spark://spark-master:7077", job_path],
         capture_output=False,

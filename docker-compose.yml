@@ -260,15 +260,19 @@ services:
     container_name: hadoop-namenode
     hostname: ${HADOOP_NAMENODE_HOST}
     restart: always
+    command: ["hdfs", "namenode"]
     environment:
       HADOOP_ROLE: namenode
       HDFS_NAMENODE_RPC_PORT: ${HADOOP_NAMENODE_PORT}
       HDFS_NAMENODE_HTTP_PORT: ${HADOOP_NAMENODE_HTTP_PORT}
+      ENSURE_NAMENODE_DIR: "/data/namenode"
+      CORE-SITE_XML_fs.defaultFS: "hdfs://${HADOOP_NAMENODE_HOST}:${HADOOP_NAMENODE_PORT}"
+      HDFS-SITE_XML_dfs.namenode.name.dir: "/data/namenode"
     ports:
       - "${HADOOP_NAMENODE_HTTP_PORT}:${HADOOP_NAMENODE_HTTP_PORT}"
       - "${HADOOP_NAMENODE_PORT}:${HADOOP_NAMENODE_PORT}"
     volumes:
-      - hdfs_data:/hadoop/dfs/name
+      - hdfs_data:/data
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:${HADOOP_NAMENODE_HTTP_PORT} || exit 1"]
       interval: 15s
@@ -281,12 +285,15 @@ services:
     image: apache/hadoop:3.3.6
     container_name: hadoop-datanode
     restart: always
+    command: ["hdfs", "datanode"]
     environment:
       HADOOP_ROLE: datanode
       NAMENODE_HOST: ${HADOOP_NAMENODE_HOST}
       NAMENODE_RPC_PORT: ${HADOOP_NAMENODE_PORT}
+      CORE-SITE_XML_fs.defaultFS: "hdfs://${HADOOP_NAMENODE_HOST}:${HADOOP_NAMENODE_PORT}"
+      HDFS-SITE_XML_dfs.datanode.data.dir: "/data/datanode"
     volumes:
-      - hdfs_data:/hadoop/dfs/data
+      - hdfs_data:/data
     depends_on:
       hadoop-namenode:
         condition: service_healthy

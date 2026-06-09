@@ -68,13 +68,14 @@ def export_mongo():
     for doc in db["restaurantes"].find():
         rows.append({
             "id": str(doc["_id"]), "nombre": safe(doc.get("nombre")),
-            "direccion": safe(doc.get("direccion")), "telefono": safe(doc.get("telefono")),
+            "direccion": safe(doc.get("direccion")), "ciudad": safe(doc.get("ciudad"), ""),
+            "telefono": safe(doc.get("telefono")),
             "id_administrador": str(doc.get("id_administrador", "")),
             "capacidad_total": safe(doc.get("capacidad_total"), "0"),
             "fecha_creacion": str(doc.get("fecha_creacion", "")),
         })
     write_csv("restaurantes.csv",
-              ["id", "nombre", "direccion", "telefono", "id_administrador",
+              ["id", "nombre", "direccion", "ciudad", "telefono", "id_administrador",
                "capacidad_total", "fecha_creacion"], rows)
 
     # platos
@@ -161,12 +162,13 @@ def export_postgres():
               ["id", "nombre", "email", "keycloak_id", "id_rol", "fecha_creacion"], rows)
 
     # restaurantes
-    cur.execute("SELECT id, nombre, direccion, telefono, id_administrador, capacidad_total FROM restaurantes")
+    cur.execute("SELECT id, nombre, direccion, ciudad, telefono, id_administrador, capacidad_total FROM restaurantes")
     rows = [{"id": str(r["id"]), "nombre": safe(r["nombre"]), "direccion": safe(r["direccion"]),
+             "ciudad": safe(r["ciudad"], ""),
              "telefono": safe(r["telefono"]), "id_administrador": str(r["id_administrador"]),
              "capacidad_total": str(r["capacidad_total"]), "fecha_creacion": ""} for r in cur.fetchall()]
     write_csv("restaurantes.csv",
-              ["id", "nombre", "direccion", "telefono", "id_administrador",
+              ["id", "nombre", "direccion", "ciudad", "telefono", "id_administrador",
                "capacidad_total", "fecha_creacion"], rows)
 
     # platos

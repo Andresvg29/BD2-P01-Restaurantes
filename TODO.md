@@ -177,11 +177,11 @@
 **Stack:** PySpark (Python) — integración natural con scripts ETL ya planeados. Imágenes `bitnami/spark:3.5`.
 
 #### 2.1 Infraestructura Spark en Docker
-- [ ] Agregar servicios al `docker-compose.yml`:
+- [x] Agregar servicios al `docker-compose.yml`:
   - `spark-master` (imagen `bitnami/spark:3.5`, modo master, puertos 8080 UI, 7077 workers)
   - `spark-worker` (imagen `bitnami/spark:3.5`, modo worker, 2+ réplicas escalables)
-- [ ] Copiar `hive-site.xml` a Spark conf para integración Hive (acceder a tablas del warehouse)
-- [ ] Conectar a la red `default` para acceso a Hive Metastore
+- [x] Copiar `hive-site.xml` a Spark conf para integración Hive (acceder a tablas del warehouse)
+- [x] Conectar a la red `default` para acceso a Hive Metastore
 
 #### 2.2 Jobs PySpark
 

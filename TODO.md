@@ -157,7 +157,7 @@
 
 **Mejoras al esquema base (soporte para hora):**
 - [x] Agregar columna `hora INT` a `warehouse/ddl/fact_orders.hql` — necesaria para análisis de horarios pico
-- [ ] Actualizar `spark/etl_to_star.py` para extraer `HOUR(timestamp)` del pedido y poblar `fact_orders.hora` *(pendiente hasta crear spark/etl_to_star.py en 2.2)*
+- [x] `spark/etl_to_star.py` extrae `HOUR(timestamp)` del pedido y puebla `fact_orders.hora`
 
 **Vistas OLAP (6):**
 - [x] Crear `warehouse/olap/v_ingresos_mensuales.hql` — Ingresos, pedidos y ticket promedio por mes + restaurante (JOIN fact_orders + dim_date + dim_restaurant)
@@ -188,9 +188,9 @@
 #### 2.2 Jobs PySpark
 
 ##### Job 1: Transformación ETL — `spark/etl_to_star.py`
-- [ ] Crear **`spark/etl_to_star.py`** (reemplaza a `transform_to_star.py` y `load_to_hive.py`):
+- [x] Crear **`spark/etl_to_star.py`** (reemplaza a `transform_to_star.py` y `load_to_hive.py`):
   - Leer CSVs de `warehouse/etl/staging/` con `spark.read.csv()`
-  - Generar dimensiones con surrogate keys (`monotonically_increasing_id` o `row_number()`)
+  - Generar dimensiones con surrogate keys (`row_number()`)
   - Construir mapeo `original_id → surrogate_key` con broadcast joins
   - Generar `dim_date` desde fechas en los datos usando SparkSQL
   - Transformar fact tables mapeando FKs con joins
@@ -200,22 +200,22 @@
   - SCD Tipo 0 (no historizar)
 
 ##### Job 2: Análisis de Tendencias — `spark/analisis_tendencias.py`
-- [ ] Crear **`spark/analisis_tendencias.py`** — Tendencias de consumo:
+- [x] Crear **`spark/analisis_tendencias.py`** — Tendencias de consumo:
   - Cargar `fact_orders` + `dim_date` + `dim_product` vía SparkSQL/Hive
   - DataFrames: ingresos por mes, top 10 productos más vendidos, categoría más popular por trimestre
-  - Output: CSV/JSON en `spark/output/tendencias/`
+  - Output: CSV en `spark/output/tendencias/`
 
 ##### Job 3: Análisis de Horarios — `spark/analisis_horarios.py`
-- [ ] Crear **`spark/analisis_horarios.py`** — Horarios pico:
+- [x] Crear **`spark/analisis_horarios.py`** — Horarios pico:
   - SparkSQL: extraer `HOUR(fecha)` de pedidos, agrupar por hora y día de semana
   - Identificar ventanas de alta demanda (peak hours)
-  - Output: CSV/JSON en `spark/output/horarios/`
+  - Output: CSV en `spark/output/horarios/`
 
 ##### Job 4: Análisis de Crecimiento — `spark/analisis_crecimiento.py`
-- [ ] Crear **`spark/analisis_crecimiento.py`** — Crecimiento mensual:
+- [x] Crear **`spark/analisis_crecimiento.py`** — Crecimiento mensual:
   - Window functions de SparkSQL: `LAG()` para mes anterior, cálculo de % de crecimiento
   - Métricas: crecimiento en ingresos, crecimiento en número de pedidos, tasa de cancelación mensual
-  - Output: CSV/JSON en `spark/output/crecimiento/`
+  - Output: CSV en `spark/output/crecimiento/`
 
 #### 2.3 Script de envío
 - [ ] Crear `spark/submit_jobs.sh` — script que envía los 4 jobs a `spark-submit`:
@@ -464,7 +464,7 @@
 | Tests factory (getEnv con casos borde) | ✅ Completado |
 | Documentación (README, REDIS_CONFIG, GoDoc) | ✅ Completado |
 | Data Warehouse y OLAP (Hive, esquema estrella, 5+ cubos) | ⬜ Pendiente |
-| Procesamiento con Spark (DataFrames, SparkSQL, 3 análisis) | ⬜ Pendiente |
+| Procesamiento con Spark (DataFrames, SparkSQL, 3 análisis) | ✅ Completado |
 | Visualización (Superset/Metabase/Redash, 3 dashboards) | ⬜ Pendiente |
 | Orquestación Airflow (DAG ETL + reindexado ES) | ⬜ Pendiente |
 | Neo4J (grafo, co-compra, rutas, consultas Cypher) | ⬜ Pendiente |

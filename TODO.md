@@ -182,6 +182,8 @@
   - `spark-worker` (imagen `bitnami/spark:3.5`, modo worker, 2+ réplicas escalables)
 - [x] Copiar `hive-site.xml` a Spark conf para integración Hive (acceder a tablas del warehouse)
 - [x] Conectar a la red `default` para acceso a Hive Metastore
+- [x] Healthcheck en spark-master (`spark-submit --version`) para esperar a que esté listo
+- **⚠️ Nota al probar:** Usar `--scale spark-worker=2` para levantar 2 workers (sin swarm, `deploy.replicas` no funciona automáticamente). Ej: `docker-compose up -d --scale spark-worker=2 spark-master spark-worker`
 
 #### 2.2 Jobs PySpark
 

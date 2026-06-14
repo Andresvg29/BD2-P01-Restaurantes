@@ -1,1 +1,31 @@
 .env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+venv/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Generated data (ETL staging + Spark output)
+warehouse/etl/staging/
+spark/output/
+
+# Go build artifacts
+api_bin
+coverage.out

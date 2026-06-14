@@ -387,6 +387,7 @@ services:
     volumes:
       - ./spark/hive-site.xml:/opt/bitnami/spark/conf/hive-site.xml:ro
       - ./spark/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf:ro
+      - ./spark:/opt/scripts:ro
       - ./warehouse/etl/staging:/opt/staging:ro
     healthcheck:
       test: ["CMD", "spark-submit", "--version"]
@@ -413,6 +414,7 @@ services:
     volumes:
       - ./spark/hive-site.xml:/opt/bitnami/spark/conf/hive-site.xml:ro
       - ./spark/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf:ro
+      - ./spark:/opt/scripts:ro
       - ./warehouse/etl/staging:/opt/staging:ro
     networks:
       - default

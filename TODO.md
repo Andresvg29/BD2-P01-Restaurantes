@@ -218,11 +218,9 @@
   - Output: CSV en `spark/output/crecimiento/`
 
 #### 2.3 Script de envío
-- [ ] Crear `spark/submit_jobs.sh` — script que envía los 4 jobs a `spark-submit`:
-  ```bash
-  spark-submit --master spark://spark-master:7077 spark/etl_to_star.py
-  spark-submit --master spark://spark-master:7077 spark/analisis_tendencias.py
-  ...
+- [x] Crear `spark/submit_jobs.sh` — script que envía los 4 jobs a `spark-submit` vía `docker exec`:
+  - ETL secuencial → 3 análisis en paralelo
+  - Usa volumen `./spark:/opt/scripts` en los contenedores Spark
 
 ---
 

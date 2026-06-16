@@ -252,18 +252,25 @@
     ```
 
 #### 3.2 Dashboards
-- [ ] **Dashboard 1:** Ingresos por mes y categoría de producto
+- [x] **Dashboard 1:** Ingresos por mes y categoría de producto
   - Gráfico de barras: ingresos mensuales agrupados por categoría
   - Gráfico de líneas: tendencia de ingresos totales (12 meses)
   - Tabla de resumen: top 5 categorías por ingresos
-- [ ] **Dashboard 2:** Actividad de clientes por zona geográfica
-  - Mapa de calor (deck.gl): reservas y pedidos por ubicación de restaurante
+- [x] **Dashboard 2:** Actividad de clientes por zona geográfica
+  - Gráfico de barras: reservas/pedidos por ciudad
   - Barras apiladas: distribución de clientes por ciudad
   - Big Number: total clientes activos
-- [ ] **Dashboard 3:** Estadísticas de pedidos completados vs cancelados
+- [x] **Dashboard 3:** Estadísticas de pedidos completados vs cancelados
   - Time-series: completados vs cancelados por mes
   - Pie chart: proporción general completado/cancelado
   - Tabla: tasa de cancelación por restaurante
+- [x] **Script de creación:** `superset/setup_dashboards.py` — crea todo vía API Superset:
+  - Conexión Hive, 9 datasets virtuales, 9 charts, 3 dashboards, export JSON
+  - Ejecutar después de tener Superset arriba e inicializado:
+    ```bash
+    docker exec superset pip install -r /app/requirements.txt
+    docker exec superset python /app/setup_dashboards.py
+    ```
 
 ---
 
@@ -469,7 +476,7 @@
 | Data Warehouse y OLAP (Hive, esquema estrella, 5+ cubos) | ⬜ Pendiente |
 | Procesamiento con Spark (DataFrames, SparkSQL, 3 análisis) | ✅ Completado |
 | Visualización (Superset, infraestructura completa 3.1) | ✅ Completado |
-| Dashboards Superset (3 dashboards, Fase 3.2) | ⬜ Pendiente |
+| Dashboards Superset (3 dashboards, Fase 3.2) | ✅ Completado |
 | Orquestación Airflow (DAG ETL + reindexado ES) | ⬜ Pendiente |
 | Neo4J (grafo, co-compra, rutas, consultas Cypher) | ⬜ Pendiente |
 | Rutas de Entrega (simulación, heurística, asignación) | ⬜ Pendiente |

@@ -421,6 +421,65 @@ services:
     deploy:
       replicas: 2
 
+  #Superset metadata DB
+  superset-db:
+    image: postgres:16-alpine
+    container_name: superset-db
+    restart: always
+    environment:
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: superset
+      POSTGRES_DB: superset
+    volumes:
+      - superset_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superset -d superset"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+
+  #Superset init (one-shot)
+  superset-init:
+    image: apache/superset:4.1.1
+    container_name: superset-init
+    command: bash /app/init_superset.sh
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-cambiame_en_produccion}
+      SUPERSET_CONFIG_PATH: /app/superset_config.py
+    volumes:
+      - ./superset/superset_config.py:/app/superset_config.py:ro
+      - ./superset/init_superset.sh:/app/init_superset.sh:ro
+    depends_on:
+      superset-db:
+        condition: service_healthy
+    networks:
+      - default
+
+  #Superset web UI
+  superset:
+    build:
+      context: ./superset
+      dockerfile: Dockerfile.superset
+    container_name: superset
+    restart: always
+    ports:
+      - "8088:8088"
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-cambiame_en_produccion}
+      SUPERSET_CONFIG_PATH: /app/superset_config.py
+    volumes:
+      - ./superset/superset_config.py:/app/superset_config.py:ro
+      - superset_data:/app/data
+    depends_on:
+      superset-db:
+        condition: service_healthy
+      hive-server:
+        condition: service_started
+    networks:
+      - default
+
 volumes:
   postgres_data:
   keycloak_db_data:
@@ -432,6 +491,8 @@ volumes:
   redis_data:
   hdfs_data:
   hive_metastore_data:
+  superset_db_data:
+  superset_data:
 
 networks:
   mongo-cluster:

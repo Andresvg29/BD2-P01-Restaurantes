@@ -229,22 +229,27 @@
 **Stack:** Apache Superset (imagen `apache/superset`, puerto 8088). Conexión a Hive y SparkSQL como fuentes de datos.
 
 #### 3.1 Infraestructura
-- [ ] Agregar servicio `superset` al `docker-compose.yml`:
-  - Imagen: `apache/superset`
-  - Puerto: 8088
-  - Depende de: hive-server (para consultas)
-- [ ] Crear `superset/Dockerfile.superset`:
-  - FROM `apache/superset`
-  - Instalar drivers: `pyhive`, `thrift`, `thrift-sasl` para Hive
+- [x] Agregar servicios al `docker-compose.yml`:
+  - `superset-db` (PostgreSQL 16 para metadata de Superset)
+  - `superset-init` (one-shot: crea admin, migra BD, inicializa roles)
+  - `superset` (imagen extendida `apache/superset:4.1.1`, puerto 8088)
+  - Dependencias: superset necesita hive-server (consultas) y superset-db (metadata)
+- [x] Crear `superset/Dockerfile.superset`:
+  - FROM `apache/superset:4.1.1`
+  - Instalar drivers: `pyhive`, `thrift`, `thrift-sasl` para Hive + `psycopg2-binary` para PostgreSQL metadata
   - Configurar `SUPERSET_SECRET_KEY`
-- [ ] Crear `superset/superset_config.py`:
-  - Conexiones a Hive (hive://hive-server:10000/default)
-  - Conexión a SparkSQL (hive://spark-master:10000/default) — si Spark Thrift Server está disponible
-- [ ] Crear `superset/init_superset.sh`:
-  - `superset fab create-admin` — usuario admin
+- [x] Crear `superset/superset_config.py`:
+  - PostgreSQL metadata URI (`postgresql://superset:superset@superset-db:5432/superset`)
+  - Conexión a Hive documentada (se agrega vía UI): `hive://hive-server:10000/default`
+  - Conexión a SparkSQL comentada (futuro): `hive://spark-master:10000/default`
+- [x] Crear `superset/init_superset.sh`:
+  - `superset fab create-admin` — usuario admin/admin
   - `superset db upgrade`
   - `superset init`
-  - Importar dashboards pre-definidos
+  - ⚠️ **Post-instalación:** Después de `docker-compose up -d`, ejecutar una vez:
+    ```bash
+    docker-compose run --rm superset-init
+    ```
 
 #### 3.2 Dashboards
 - [ ] **Dashboard 1:** Ingresos por mes y categoría de producto
@@ -463,7 +468,8 @@
 | Documentación (README, REDIS_CONFIG, GoDoc) | ✅ Completado |
 | Data Warehouse y OLAP (Hive, esquema estrella, 5+ cubos) | ⬜ Pendiente |
 | Procesamiento con Spark (DataFrames, SparkSQL, 3 análisis) | ✅ Completado |
-| Visualización (Superset/Metabase/Redash, 3 dashboards) | ⬜ Pendiente |
+| Visualización (Superset, infraestructura completa 3.1) | ✅ Completado |
+| Dashboards Superset (3 dashboards, Fase 3.2) | ⬜ Pendiente |
 | Orquestación Airflow (DAG ETL + reindexado ES) | ⬜ Pendiente |
 | Neo4J (grafo, co-compra, rutas, consultas Cypher) | ⬜ Pendiente |
 | Rutas de Entrega (simulación, heurística, asignación) | ⬜ Pendiente |

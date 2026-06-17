@@ -279,32 +279,33 @@
 **Stack:** Apache Airflow 2.8 (imagen `apache/airflow:2.8`). Scheduler + Webserver + Worker. DAG ETL diario.
 
 #### 4.1 Infraestructura
-- [ ] Agregar servicios al `docker-compose.yml`:
+- [x] Agregar servicios al `docker-compose.yml`:
   - `airflow-db` (PostgreSQL 16 para metadatos de Airflow)
-  - `airflow-webserver` (puerto 8080, imagen extendida con dependencias)
+  - `airflow-init` (one-shot: migrate, create admin, import connections)
+  - `airflow-webserver` (puerto 8085, imagen extendida con dependencias)
   - `airflow-scheduler` (misma imagen, comando scheduler)
   - `airflow-worker` (misma imagen, comando celery worker)
-- [ ] Crear `airflow/Dockerfile`:
+- [x] Crear `airflow/Dockerfile`:
   - FROM `apache/airflow:2.8`
-  - Instalar: `apache-airflow-providers-apache-spark`, `pymongo`, `pyhive`, `thrift`, `elasticsearch`
-- [ ] Crear conexiones pre-configuradas en `airflow/connections.yaml`:
+  - Instalar: Spark 3.5.0 + `apache-airflow-providers-apache-spark`, `apache-airflow-providers-celery`, `pymongo`, `pyhive`, `thrift`, `thrift-sasl`, `elasticsearch`, `psycopg2-binary`, `requests`
+- [x] Crear conexiones pre-configuradas en `airflow/config/connections.yaml`:
   - `mongo_default`, `hive_default`, `spark_default`, `elasticsearch_default`
 
 #### 4.2 DAG de ETL Completo
-- [ ] Crear `airflow/dags/etl_pipeline.py` — DAG con ejecución diaria:
+- [x] Crear `airflow/dags/etl_pipeline.py` — DAG con ejecución diaria:
   1. **`extract_data`** → BashOperator: ejecuta `warehouse/etl/export_data.py` (extrae de MongoDB o PostgreSQL según `DB_ENGINE`)
   2. **`etl_to_star`** → SparkSubmitOperator: envía `spark/etl_to_star.py` (Spark lee CSVs de staging/, transforma a estrella y escribe en Hive)
   3. **`analisis_tendencias`** → SparkSubmitOperator: envía `spark/analisis_tendencias.py` (en paralelo con los otros análisis)
   4. **`analisis_horarios`** → SparkSubmitOperator: envía `spark/analisis_horarios.py` (en paralelo)
   5. **`analisis_crecimiento`** → SparkSubmitOperator: envía `spark/analisis_crecimiento.py` (en paralelo)
-  6. **`reindex_elasticsearch`** → PythonOperator: reindexado condicional vía MD5 hash
+  6. **`reindex_elasticsearch`** → BranchPythonOperator + PythonOperator: reindexado condicional vía MD5 hash
      - Calcular MD5 de `warehouse/etl/staging/platos.csv` después de `extract_data`
      - Comparar con hash almacenado en `warehouse/etl/staging/.last_platos_hash`
-     - Si cambió → ejecutar `POST /search/reindex` via HttpHook, persistir nuevo hash en `.last_platos_hash`
+     - Si cambió → ejecutar `POST /search/reindex` via requests, persistir nuevo hash en `.last_platos_hash`
      - Si no cambió → skipear la tarea (BranchPythonOperator que la omite)
-  - Dependencias: extract_data → etl_to_star → (tendencias, horarios, crecimiento en paralelo) → reindex
-  - Retry: 2 reintentos con backoff de 5 min
-  - Alertas: email/slack opcional
+   - Dependencias: extract_data → etl_to_star → (tendencias, horarios, crecimiento en paralelo) → reindex
+   - Retry: 2 reintentos con backoff de 5 min
+   - CeleryExecutor con Redis como broker
 
 ---
 
@@ -477,7 +478,7 @@
 | Procesamiento con Spark (DataFrames, SparkSQL, 3 análisis) | ✅ Completado |
 | Visualización (Superset, infraestructura completa 3.1) | ✅ Completado |
 | Dashboards Superset (3 dashboards, Fase 3.2) | ✅ Completado |
-| Orquestación Airflow (DAG ETL + reindexado ES) | ⬜ Pendiente |
+| Orquestación Airflow (DAG ETL + reindexado ES) | ✅ Completado |
 | Neo4J (grafo, co-compra, rutas, consultas Cypher) | ⬜ Pendiente |
 | Rutas de Entrega (simulación, heurística, asignación) | ⬜ Pendiente |
 | Pruebas y Validaciones OLAP | ⬜ Pendiente |

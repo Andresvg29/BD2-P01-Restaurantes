@@ -389,6 +389,7 @@ services:
       - ./spark/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf:ro
       - ./spark:/opt/scripts:ro
       - ./warehouse/etl/staging:/opt/staging:ro
+      - ./spark/output:/opt/bitnami/spark/output
     healthcheck:
       test: ["CMD", "spark-submit", "--version"]
       interval: 15s
@@ -416,6 +417,7 @@ services:
       - ./spark/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf:ro
       - ./spark:/opt/scripts:ro
       - ./warehouse/etl/staging:/opt/staging:ro
+      - ./spark/output:/opt/bitnami/spark/output
     networks:
       - default
     deploy:
@@ -480,6 +482,164 @@ services:
     networks:
       - default
 
+  # ── Airflow ──────────────────────────────────────────────────────────────
+
+  airflow-db:
+    image: postgres:16-alpine
+    container_name: airflow-db
+    restart: always
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+
+  airflow-init:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    container_name: airflow-init
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-cambiame_en_produccion}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags:ro
+      - ./airflow/config:/opt/airflow/config:ro
+    entrypoint: /bin/bash
+    command: >
+      -c "
+        airflow db migrate &&
+        airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com 2>/dev/null || true &&
+        airflow connections import /opt/airflow/config/connections.yaml
+      "
+    networks:
+      - default
+
+  airflow-webserver:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    container_name: airflow-webserver
+    restart: always
+    ports:
+      - "8085:8080"
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/1
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-cambiame_en_produccion}
+      SPARK_HOME: /opt/spark
+      PYSPARK_PYTHON: python3
+      DB_ENGINE: ${DB_ENGINE}
+      MONGO_URI: ${MONGO_URI}
+      MONGO_DB: ${MONGO_DB}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags:ro
+      - ./airflow/config:/opt/airflow/config:ro
+      - ./warehouse:/opt/warehouse:ro
+      - ./spark:/opt/scripts:ro
+      - airflow_logs:/opt/airflow/logs
+    networks:
+      - default
+
+  airflow-scheduler:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    container_name: airflow-scheduler
+    restart: always
+    command: scheduler
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/1
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-cambiame_en_produccion}
+      SPARK_HOME: /opt/spark
+      PYSPARK_PYTHON: python3
+      DB_ENGINE: ${DB_ENGINE}
+      MONGO_URI: ${MONGO_URI}
+      MONGO_DB: ${MONGO_DB}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags:ro
+      - ./airflow/config:/opt/airflow/config:ro
+      - ./warehouse:/opt/warehouse:ro
+      - ./spark:/opt/scripts:ro
+      - airflow_logs:/opt/airflow/logs
+    networks:
+      - default
+
+  airflow-worker:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    container_name: airflow-worker
+    restart: always
+    command: celery worker
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/1
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-cambiame_en_produccion}
+      SPARK_HOME: /opt/spark
+      PYSPARK_PYTHON: python3
+      DB_ENGINE: ${DB_ENGINE}
+      MONGO_URI: ${MONGO_URI}
+      MONGO_DB: ${MONGO_DB}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags:ro
+      - ./airflow/config:/opt/airflow/config:ro
+      - ./warehouse:/opt/warehouse:ro
+      - ./spark:/opt/scripts:ro
+      - airflow_logs:/opt/airflow/logs
+    networks:
+      - default
+
 volumes:
   postgres_data:
   keycloak_db_data:
@@ -493,6 +653,8 @@ volumes:
   hive_metastore_data:
   superset_db_data:
   superset_data:
+  airflow_db_data:
+  airflow_logs:
 
 networks:
   mongo-cluster:

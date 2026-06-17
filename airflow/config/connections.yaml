@@ -1,0 +1,40 @@
+postgres_default:
+    conn_type: postgres
+    host: db
+    port: 5432
+    schema: restaurante_db
+    login: admin
+    password: password
+    extra: '{}'
+
+mongo_default:
+    conn_type: mongodb
+    host: mongos
+    port: 27017
+    schema: restaurante_db
+    login: ''
+    password: ''
+    extra: '{}'
+
+hive_default:
+    conn_type: hive
+    host: hive-server
+    port: 10000
+    schema: default
+    login: ''
+    password: ''
+    extra: '{}'
+
+spark_default:
+    conn_type: spark
+    host: spark://spark-master
+    port: 7077
+    extra: '{"queue": "default"}'
+
+elasticsearch_default:
+    conn_type: elasticsearch
+    host: elasticsearch
+    port: 9200
+    login: ''
+    password: ''
+    extra: '{"http_compress": true}'

@@ -64,3 +64,52 @@ El microservicio de búsqueda corre en http://localhost/search.
 
 Para endpoints que requieren JWT, primero haz login a /api/auth/login
 y usa el access_token en el header Authorization: Bearer <token>.
+
+---
+
+## Airflow (Orquestación ETL)
+
+Airflow orquesta el pipeline ETL diario. Stack: Airflow 2.8 + CeleryExecutor + Redis (broker).
+
+### Servicios en docker-compose
+| Servicio | Puerto | Descripción |
+|---|---|---|
+| `airflow-db` | — | PostgreSQL 16 para metadatos |
+| `airflow-init` | — | One-shot: migra BD, crea admin, importa conexiones |
+| `airflow-webserver` | 8085 | UI de Airflow |
+| `airflow-scheduler` | — | Scheduler de tareas |
+| `airflow-worker` | — | Ejecutor Celery de tareas |
+
+### Inicialización
+```bash
+docker-compose up -d airflow-db
+docker-compose run --rm airflow-init
+docker-compose up -d airflow-webserver airflow-scheduler airflow-worker
+```
+
+### Acceso
+- **UI:** http://localhost:8085
+- **Usuario:** `admin` / `admin`
+
+### DAG: `etl_pipeline`
+Ejecución diaria con 6 tareas:
+```
+extract_data (export_data.py)
+    ↓
+etl_to_star (Spark → Hive)
+    ↓
+tendencias, horarios, crecimiento (Spark, en paralelo)
+    ↓
+check_reindex → reindex_elasticsearch (si platos.csv cambió)
+             └→ skip_reindex (si no cambió)
+```
+
+### Trigger manual
+```bash
+docker exec airflow-webserver airflow dags trigger etl_pipeline
+```
+
+### Ver logs de tareas
+```bash
+docker exec airflow-webserver airflow tasks logs etl_pipeline <task_id> <execution_date>
+```

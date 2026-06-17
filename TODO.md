@@ -314,16 +314,19 @@
 **Stack:** Neo4j 5 Community + plugin APOC (imagen `neo4j:5-community`, puertos 7474 HTTP, 7687 Bolt).
 
 #### 5.1 Infraestructura
-- [ ] Agregar servicio `neo4j` al `docker-compose.yml`:
+- [x] Agregar servicio `neo4j` al `docker-compose.yml`:
   - Imagen: `neo4j:5-community`
   - Puertos: 7474:7474 (HTTP Browser), 7687:7687 (Bolt)
   - Variables de entorno: `NEO4J_PLUGINS=["apoc"]`, `NEO4J_AUTH=neo4j/password`
   - Volumen: `neo4j_data` para persistencia
+  - Healthcheck con cypher-shell
+  - Volumen `./neo4j/staging:/var/lib/neo4j/import:ro` para CSVs
 
 #### 5.2 Modelo de Grafo
-- [ ] Crear `neo4j/` directorio con:
+- [x] Crear `neo4j/` directorio con:
   - `import_data.py` — script Python que exporta desde MongoDB/PostgreSQL a CSVs de nodos y relaciones
   - `load_schema.cypher` — crea constraints, índices y carga CSVs
+  - `init_neo4j.sh` — orquestador que ejecuta import_data.py + load_schema.cypher vía cypher-shell
 - [ ] **Nodos:**
   ```cypher
   (:User {user_id, nombre, email})
@@ -345,36 +348,10 @@
   ```
 
 #### 5.3 Consultas Cypher
-- [ ] **Top 5 productos más comprados juntos (co-compra):**
-  ```cypher
-  MATCH (p1:Product)<-[:INCLUDES]-(o:Order)-[:INCLUDES]->(p2:Product)
-  WHERE p1 <> p2
-  RETURN p1.nombre, p2.nombre, COUNT(*) AS frecuencia
-  ORDER BY frecuencia DESC LIMIT 5
-  ```
-- [ ] **Usuarios que recomiendan a otros (compra misma categoría + mismo restaurante):**
-  ```cypher
-  MATCH (u1:User)-[:PLACED]->(:Order)-[:AT]->(r:Restaurant),
-        (u2:User)-[:PLACED]->(:Order)-[:AT]->(r)
-  WHERE u1 <> u2
-  RETURN u1.nombre, u2.nombre, COUNT(*) AS afinidad
-  ORDER BY afinidad DESC LIMIT 10
-  ```
-- [ ] **Caminos mínimos entre ubicaciones para reparto eficiente:**
-  ```cypher
-  MATCH (a:Location {location_id: $origen}),
-        (b:Location {location_id: $destino}),
-        p = shortestPath((a)-[:ROAD*]-(b))
-  RETURN [n IN nodes(p) | n.address] AS ruta,
-         reduce(acc = 0, r IN relationships(p) | acc + r.distance_km) AS distancia_total
-  ```
-- [ ] **Usuarios influyentes (PageRank con GDS opcional):**
-  ```cypher
-  CALL gds.pageRank.stream('user-product-graph')
-  YIELD nodeId, score
-  RETURN gds.util.asNode(nodeId).nombre AS usuario, score
-  ORDER BY score DESC LIMIT 5
-  ```
+- [x] **Top 5 productos más comprados juntos (co-compra):** `neo4j/consultas.cypher` — Co-compra con frecuencia por pares de productos en mismos pedidos
+- [x] **Usuarios que recomiendan a otros (afinidad por restaurante + categoría):** `neo4j/consultas.cypher` — Usuarios con preferencias similares
+- [x] **Caminos mínimos entre ubicaciones para reparto eficiente:** `neo4j/consultas.cypher` — ShortestPath con parámetros `$origen` y `$destino`
+- [x] **Usuarios influyentes (PageRank con GDS / Centralidad por grado):** `neo4j/consultas.cypher` — Ambas variantes documentadas: GDS PageRank (requiere plugin) y Centralidad por grado como alternativa
 
 ---
 
@@ -474,12 +451,12 @@
 | Tests repositorios MongoDB (55 tests, 94.3%) | ✅ Completado |
 | Tests factory (getEnv con casos borde) | ✅ Completado |
 | Documentación (README, REDIS_CONFIG, GoDoc) | ✅ Completado |
-| Data Warehouse y OLAP (Hive, esquema estrella, 5+ cubos) | ⬜ Pendiente |
-| Procesamiento con Spark (DataFrames, SparkSQL, 3 análisis) | ✅ Completado |
-| Visualización (Superset, infraestructura completa 3.1) | ✅ Completado |
-| Dashboards Superset (3 dashboards, Fase 3.2) | ✅ Completado |
+| Data Warehouse y OLAP (Hive, esquema estrella, 6 vistas OLAP) | ✅ Completado |
+| Procesamiento con Spark (DataFrames, SparkSQL, 4 jobs) | ✅ Completado |
+| Visualización (Superset, infraestructura + setup_dashboards.py) | ✅ Completado |
+| Dashboards Superset (3 dashboards, 9 charts, Fase 3.2) | ✅ Completado |
 | Orquestación Airflow (DAG ETL + reindexado ES) | ✅ Completado |
-| Neo4J (grafo, co-compra, rutas, consultas Cypher) | ⬜ Pendiente |
+| Neo4J (servicio Docker, modelo grafo, import_data, consultas Cypher) | ✅ Completado |
 | Rutas de Entrega (simulación, heurística, asignación) | ⬜ Pendiente |
 | Pruebas y Validaciones OLAP | ⬜ Pendiente |
 | Entregables (código, DAG, notebooks, dashboards, PDF) | ⬜ Pendiente |

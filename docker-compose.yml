@@ -640,6 +640,30 @@ services:
     networks:
       - default
 
+  # ── Neo4J ────────────────────────────────────────────────────────────────
+  neo4j:
+    image: neo4j:5-community
+    container_name: neo4j
+    restart: always
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_AUTH: neo4j/password
+      NEO4J_dbms_memory_pagecache_size: 512M
+      NEO4J_dbms_memory_heap_max__size: 1G
+    volumes:
+      - neo4j_data:/data
+      - ./neo4j/staging:/var/lib/neo4j/import:ro
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p password 'RETURN 1' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks:
+      - default
+
 volumes:
   postgres_data:
   keycloak_db_data:
@@ -655,6 +679,7 @@ volumes:
   superset_data:
   airflow_db_data:
   airflow_logs:
+  neo4j_data:
 
 networks:
   mongo-cluster:

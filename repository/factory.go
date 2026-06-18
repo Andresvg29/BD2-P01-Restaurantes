@@ -25,6 +25,7 @@ type Repos struct {
 	Reservation ReservationRepository
 	Order       OrderRepository
 	RedisClient *RedisClient
+	Neo4j       *Neo4jClient
 }
 
 // NewRepos crea los repositorios según DB_ENGINE ("postgres" o "mongodb").
@@ -52,6 +53,16 @@ func NewRepos() (*Repos, func(), error) {
 			log.Printf("Redis conectado exitosamente")
 		}
 	}
+	// Neo4j (graceful degradation: si no contesta, se usa nil)
+	var neo4jClient *Neo4jClient
+	neo4jClient, neo4jErr := NewNeo4jClient()
+	if neo4jErr != nil {
+		log.Printf("Advertencia: No se pudo conectar a Neo4j: %v. Rutas de entrega no disponibles.", neo4jErr)
+		neo4jClient = nil
+	} else {
+		log.Printf("Neo4j conectado exitosamente")
+	}
+
 	elasticURL := os.Getenv("ELASTICSEARCH_URL")
 	if elasticURL == "" {
 		elasticURL = "http://elasticsearch:9200"
@@ -61,18 +72,21 @@ func NewRepos() (*Repos, func(), error) {
 	elasticClient := esConn.ESClient
 	switch engine {
 	case "postgres":
-		return newPostgresRepos(redisClient, elasticClient)
+		return newPostgresRepos(redisClient, elasticClient, neo4jClient)
 	case "mongodb":
-		return newMongoRepos(redisClient, elasticClient)
+		return newMongoRepos(redisClient, elasticClient, neo4jClient)
 	default:
 		if redisClient != nil {
 			redisClient.Close()
+		}
+		if neo4jClient != nil {
+			neo4jClient.Close()
 		}
 		return nil, nil, fmt.Errorf("DB_ENGINE inválido: %q (usa 'postgres' o 'mongodb')", engine)
 	}
 }
 
-func newPostgresRepos(redisClient *RedisClient, elasticClient *elasticsearch.Client) (*Repos, func(), error) {
+func newPostgresRepos(redisClient *RedisClient, elasticClient *elasticsearch.Client, neo4jClient *Neo4jClient) (*Repos, func(), error) {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		getEnv("POSTGRES_USER", "admin"),
 		getEnv("POSTGRES_PASSWORD", "password"),
@@ -86,11 +100,17 @@ func newPostgresRepos(redisClient *RedisClient, elasticClient *elasticsearch.Cli
 		if redisClient != nil {
 			redisClient.Close()
 		}
+		if neo4jClient != nil {
+			neo4jClient.Close()
+		}
 		return nil, nil, fmt.Errorf("abriendo postgres: %w", err)
 	}
 	if err := db.Ping(); err != nil {
 		if redisClient != nil {
 			redisClient.Close()
+		}
+		if neo4jClient != nil {
+			neo4jClient.Close()
 		}
 		return nil, nil, fmt.Errorf("ping postgres: %w", err)
 	}
@@ -109,6 +129,7 @@ func newPostgresRepos(redisClient *RedisClient, elasticClient *elasticsearch.Cli
 		Reservation: reservationRepo,
 		Order:       orderRepo,
 		RedisClient: redisClient,
+		Neo4j:       neo4jClient,
 	}
 
 	cleanup := func() {
@@ -116,12 +137,15 @@ func newPostgresRepos(redisClient *RedisClient, elasticClient *elasticsearch.Cli
 		if redisClient != nil {
 			redisClient.Close()
 		}
+		if neo4jClient != nil {
+			neo4jClient.Close()
+		}
 	}
 
 	return repos, cleanup, nil
 }
 
-func newMongoRepos(redisClient *RedisClient, elasticClient *elasticsearch.Client) (*Repos, func(), error) {
+func newMongoRepos(redisClient *RedisClient, elasticClient *elasticsearch.Client, neo4jClient *Neo4jClient) (*Repos, func(), error) {
 	uri := getEnv("MONGO_URI", "mongodb://localhost:27017")
 	dbName := getEnv("MONGO_DB", "restaurante_db")
 
@@ -130,11 +154,17 @@ func newMongoRepos(redisClient *RedisClient, elasticClient *elasticsearch.Client
 		if redisClient != nil {
 			redisClient.Close()
 		}
+		if neo4jClient != nil {
+			neo4jClient.Close()
+		}
 		return nil, nil, fmt.Errorf("conectando mongodb: %w", err)
 	}
 	if err := client.Ping(context.Background(), nil); err != nil {
 		if redisClient != nil {
 			redisClient.Close()
+		}
+		if neo4jClient != nil {
+			neo4jClient.Close()
 		}
 		return nil, nil, fmt.Errorf("ping mongodb: %w", err)
 	}
@@ -155,12 +185,16 @@ func newMongoRepos(redisClient *RedisClient, elasticClient *elasticsearch.Client
 		Reservation: reservationRepo,
 		Order:       orderRepo,
 		RedisClient: redisClient,
+		Neo4j:       neo4jClient,
 	}
 
 	cleanup := func() {
 		client.Disconnect(context.Background())
 		if redisClient != nil {
 			redisClient.Close()
+		}
+		if neo4jClient != nil {
+			neo4jClient.Close()
 		}
 	}
 

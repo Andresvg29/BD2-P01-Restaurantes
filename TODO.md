@@ -327,25 +327,8 @@
   - `import_data.py` — script Python que exporta desde MongoDB/PostgreSQL a CSVs de nodos y relaciones
   - `load_schema.cypher` — crea constraints, índices y carga CSVs
   - `init_neo4j.sh` — orquestador que ejecuta import_data.py + load_schema.cypher vía cypher-shell
-- [ ] **Nodos:**
-  ```cypher
-  (:User {user_id, nombre, email})
-  (:Product {product_id, nombre, categoria, precio})
-  (:Restaurant {restaurant_id, nombre, direccion, lat, lon})
-  (:Order {order_id, total_amount, fecha})
-  (:Reservation {reservation_id, fecha, party_size})
-  (:Location {location_id, lat, lon, address})
-  ```
-- [ ] **Relaciones:**
-  ```cypher
-  (u:User)-[:PLACED {fecha}]->(o:Order)
-  (o:Order)-[:INCLUDES {cantidad, subtotal}]->(p:Product)
-  (o:Order)-[:AT]->(r:Restaurant)
-  (u:User)-[:MADE_RESERVATION]->(res:Reservation)
-  (res:Reservation)-[:AT]->(r:Restaurant)
-  (r:Restaurant)-[:LOCATED_AT]->(l:Location)
-  (l1:Location)-[:ROAD {distance_km}]->(l2:Location)
-  ```
+- [x] **Nodos:** Users, Products, Restaurants, Orders, Reservations (import_data.py) + Locations (generate_geo.py)
+- [x] **Relaciones:** PLACED, INCLUDES, AT, MADE_RESERVATION (import_data.py) + LOCATED_AT, ROAD (generate_geo.py)
 
 #### 5.3 Consultas Cypher
 - [x] **Top 5 productos más comprados juntos (co-compra):** `neo4j/consultas.cypher` — Co-compra con frecuencia por pares de productos en mismos pedidos
@@ -358,35 +341,34 @@
 ### 6. Asignación de Rutas de Entrega (10%)
 
 #### 6.1 Datos Geoespaciales
-- [ ] Generar coordenadas ficticias para restaurantes en San José, Costa Rica:
-  - Crear `scripts/generate_geo.py` — asigna lat/lon aleatorios pero realistas (9.92-9.94, -84.08--84.10) a cada restaurante basado en su dirección
-  - Almacenar en Neo4j como nodos `(:Location)` y en MongoDB como campo `ubicacion`
-- [ ] Crear relación `[:ROAD]` entre ubicaciones cercanas (< 5km) con distancia Haversine calculada
-  ```cypher
-  MATCH (a:Location), (b:Location)
-  WHERE a <> b AND point.distance(a.point, b.point) < 5000
-  MERGE (a)-[:ROAD {distance_km: round(point.distance(a.point, b.point)/1000, 1)}]->(b)
-  ```
+- [x] Generar coordenadas ficticias para restaurantes en San José, Costa Rica:
+  - Crear `scripts/generate_geo.py` — asigna lat/lon determinísticos vía MD5 hash (9.92-9.94, -84.08--84.10) a cada restaurante
+  - Exporta CSVs a `neo4j/staging/`: `locations.csv`, `located_at.csv`, `roads.csv`
+  - Almacena en Neo4j como nodos `(:Location)` y en MongoDB como campo `ubicacion`
+- [x] Crear relación `[:ROAD]` entre ubicaciones cercanas (< 5km) con distancia Haversine calculada:
+  - Generada en `scripts/generate_geo.py` con Haversine + CSVs para LOAD CSV
+  - Cargada vía `neo4j/load_schema.cypher` con `MERGE (a)-[:ROAD {distance_km}]->(b)`
 
 #### 6.2 Heurística de Enrutamiento
-- [ ] Implementar endpoint `GET /api/delivery/routes` (handler en Go):
-  - Query params: `desde=restaurant_id`, `hasta=order_id` (obtiene dirección del cliente)
-  - Parámetro opcional: `algoritmo=nearest|cypher`
-- [ ] **Algoritmo Vecino Más Cercano (Go puro):**
-  - Obtener lista de Location IDs desde Neo4j
-  - Implementar TSP greedy: desde el origen, visitar siempre la Location más cercana no visitada
-  - Retornar ruta ordenada + distancia total
-- [ ] **Algoritmo Cypher ShortestPath:**
-  - Delegar a la consulta Neo4j de camino mínimo
-  - Usar driver Go `neo4j/neo4j-go-driver` para ejecutar la consulta
-- [ ] Respuesta JSON: `{ruta: [{direccion, lat, lon, orden}], distancia_total_km, algoritmo_usado}`
-- [ ] Asignación por repartidor: agrupar rutas por zona (clustering simple por grilla de 2x2km)
+- [x] Implementar endpoint `GET /api/delivery/routes` (handler en `handlers/delivery.go`):
+  - Query params: `desde=restaurant_id`, `hasta=order_id`, `algoritmo=nearest|cypher`
+- [x] **Algoritmo Vecino Más Cercano (Go puro):**
+  - Obtiene todas las Location desde Neo4j vía `GetAllLocations()`
+  - TSP greedy: desde origen, siempre visita la Location más cercana no visitada
+  - Retorna `RouteResponse` con ruta ordenada + distancia total
+- [x] **Algoritmo Cypher ShortestPath:**
+  - Delega a `neo4j.GetShortestPath()` que ejecuta `shortestPath` con `[:ROAD*]`
+  - Retorna misma estructura `RouteResponse`
+- [x] Respuesta JSON: `{ruta: [{direccion, lat, lon, orden}], distancia_total_km, algoritmo_usado}`
+- [x] Asignación por repartidor: función `assignZones()` agrupa ubicaciones por grilla de 2x2km
 
 #### 6.3 Integración con Neo4j desde Go
-- [ ] Agregar driver Neo4j a `go.mod`: `github.com/neo4j/neo4j-go-driver/v5`
-- [ ] Crear `repository/neo4j.go` — cliente Neo4j singleton
-- [ ] Crear `handlers/delivery.go` — handler del endpoint `/api/delivery/routes`
-- [ ] Registrar ruta en `api/main.go` (requiere JWT + rol admin)
+- [x] Agregar driver Neo4j a `go.mod`: `github.com/neo4j/neo4j-go-driver/v5 v5.27.0`
+- [x] Crear `repository/neo4j.go` — cliente singleton con conexión Bolt (GetAllLocations, GetLocationByRestaurant, GetLocationByOrder, GetShortestPath)
+- [x] Crear `repository/interface.go` — interfaz `DeliveryRepository` con los 4 métodos
+- [x] Crear `handlers/delivery.go` — handler del endpoint `/api/delivery/routes`
+- [x] Registrar ruta en `api/main.go` — `GET /delivery/routes` en grupo admin (JWT + RequireAdmin)
+- [x] Graceful degradation: si Neo4j no contesta, `NewRepos()` setea `Neo4j = nil` y el endpoint responde 503
 
 ---
 
@@ -457,6 +439,6 @@
 | Dashboards Superset (3 dashboards, 9 charts, Fase 3.2) | ✅ Completado |
 | Orquestación Airflow (DAG ETL + reindexado ES) | ✅ Completado |
 | Neo4J (servicio Docker, modelo grafo, import_data, consultas Cypher) | ✅ Completado |
-| Rutas de Entrega (simulación, heurística, asignación) | ⬜ Pendiente |
+| Rutas de Entrega (generate_geo, TSP greedy, Cypher ShortestPath, endpoint Go) | ✅ Completado |
 | Pruebas y Validaciones OLAP | ⬜ Pendiente |
 | Entregables (código, DAG, notebooks, dashboards, PDF) | ⬜ Pendiente |

@@ -69,6 +69,7 @@ func main() {
 		adminOnly.POST("/menus", handlers.CreateMenu(repos.Menu, repos.Restaurant))
 		adminOnly.PUT("/menus/:id", handlers.UpdateMenu(repos.Menu))
 		adminOnly.DELETE("/menus/:id", handlers.DeleteMenu(repos.Menu))
+		adminOnly.GET("/delivery/routes", handlers.GetDeliveryRoute(repos.Neo4j, repos.Restaurant, repos.Order))
 	}
 
 	// Rutas protegidas para autenticados

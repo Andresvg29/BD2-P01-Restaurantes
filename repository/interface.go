@@ -46,3 +46,11 @@ type OrderRepository interface {
 	Create(userID, restaurantID string, esRecogida bool, detalles []models.OrderDetailRequest) (*models.Order, error)
 	GetByID(orderID string) (*models.Order, error)
 }
+
+// DeliveryRepository define las operaciones para cálculo de rutas de entrega.
+type DeliveryRepository interface {
+	GetAllLocations() ([]models.Location, error)
+	GetLocationByRestaurant(restaurantID string) (*models.Location, error)
+	GetLocationByOrder(orderID string) (*models.Location, error)
+	GetShortestPath(origenID, destinoID string) ([]models.Location, float64, error)
+}

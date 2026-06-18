@@ -81,3 +81,24 @@ LOAD CSV WITH HEADERS FROM 'file:///at_reservation.csv' AS row
 MATCH (r:Reservation {reservation_id: row.`:START_ID(Reservation)`})
 MATCH (rest:Restaurant {restaurant_id: row.`:END_ID(Restaurant)`})
 MERGE (r)-[:AT]->(rest);
+
+// ---------- DATOS GEOESPACIALES (Seccion 6) ----------
+
+CREATE CONSTRAINT unique_location IF NOT EXISTS FOR (l:Location) REQUIRE l.location_id IS UNIQUE;
+CREATE INDEX idx_location_coords IF NOT EXISTS FOR (l:Location) ON (l.lat, l.lon);
+
+LOAD CSV WITH HEADERS FROM 'file:///locations.csv' AS row
+MERGE (l:Location {location_id: row.`location_id:ID(Location)`})
+SET l.lat = toFloat(row.`lat:float`),
+    l.lon = toFloat(row.`lon:float`),
+    l.address = row.address;
+
+LOAD CSV WITH HEADERS FROM 'file:///located_at.csv' AS row
+MATCH (r:Restaurant {restaurant_id: row.`:START_ID(Restaurant)`})
+MATCH (l:Location {location_id: row.`:END_ID(Location)`})
+MERGE (r)-[:LOCATED_AT]->(l);
+
+LOAD CSV WITH HEADERS FROM 'file:///roads.csv' AS row
+MATCH (a:Location {location_id: row.`:START_ID(Location)`})
+MATCH (b:Location {location_id: row.`:END_ID(Location)`})
+MERGE (a)-[:ROAD {distance_km: toFloat(row.`distance_km:float`)}]->(b);

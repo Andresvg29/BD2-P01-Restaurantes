@@ -68,3 +68,26 @@ type OrderDetailRequest struct {
 	IdPlato  string `json:"id_plato"  binding:"required"`
 	Cantidad int    `json:"cantidad"  binding:"required,gt=0"`
 }
+
+// Location representa una ubicación geográfica (nodo en Neo4j).
+type Location struct {
+	ID      string  `json:"id"`
+	Lat     float64 `json:"lat"`
+	Lon     float64 `json:"lon"`
+	Address string  `json:"address"`
+}
+
+// RouteStep es un punto en la ruta de entrega.
+type RouteStep struct {
+	Direccion string  `json:"direccion"`
+	Lat       float64 `json:"lat"`
+	Lon       float64 `json:"lon"`
+	Orden     int     `json:"orden"`
+}
+
+// RouteResponse es la respuesta del endpoint de rutas de entrega.
+type RouteResponse struct {
+	Ruta           []RouteStep `json:"ruta"`
+	DistanciaTotal float64     `json:"distancia_total_km"`
+	Algoritmo      string      `json:"algoritmo_usado"`
+}

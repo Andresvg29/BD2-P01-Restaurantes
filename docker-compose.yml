@@ -361,6 +361,8 @@ services:
       SERVICE_NAME: hiveserver2
     ports:
       - "${HIVE_PORT}:${HIVE_PORT}"
+    volumes:
+      - ./warehouse:/opt/warehouse:ro
     depends_on:
       hive-metastore:
         condition: service_started

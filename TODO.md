@@ -428,6 +428,107 @@
 
 ---
 
+## 🛠 Cambios Pendientes pre-Ejecución
+
+### 1. Agregar columna `ciudad` a `restaurantes`
+
+**Archivo:** `init.sql` — tabla `restaurantes`
+- Agregar `ciudad VARCHAR(100) DEFAULT ''` después del campo `direccion`
+- Poblar en seed data: `'San José'`, `'Cartago'`, `'Heredia'`
+
+**Archivo:** `initMongo.js` — documentos de restaurantes
+- Agregar campo `ciudad` a cada documento (`"San José"`, `"Cartago"`, `"Heredia"`)
+
+**Motivo:** El ETL (`export_data.py`) y las vistas OLAP (`v_reservas_por_ubicacion`) requieren `ciudad` para el análisis geográfico. No afecta al código Go (ver análisis más abajo para confirmación).
+
+---
+
+### 2. Corregir mapeo de estados de pedido en Warehouse
+
+**Archivo:** `spark/etl_to_star.py` — función `build_dim_order_status()`
+
+| Actual (incorrecto) | Correcto |
+|---|---|
+| 1=Confirmada | 1=pendiente |
+| 2=Cancelada | 2=en_preparacion |
+| 3=Pendiente | 3=completado |
+| — | 4=entregado |
+
+**Archivo:** `warehouse/ddl/dim_order_status.hql`
+- Sincronizar con los 4 estados reales del sistema
+
+**Motivo:** Si no se corrige, los análisis de cancelación y estado (`v_tendencias_mensuales`, dashboard #3) mostrarán datos incorrectos.
+
+---
+
+### 3. Corregir mapeo de estados de reserva en Warehouse
+
+**Archivo:** `spark/etl_to_star.py` — función `build_dim_reservation_status()`
+
+| Actual (incorrecto) | Correcto |
+|---|---|
+| 1=Confirmada | 1=pendiente |
+| 2=Cancelada | 2=confirmada |
+| — | 3=cancelada |
+
+**Archivo:** `warehouse/ddl/dim_reservation_status.hql`
+- Agregar estado `"pendiente"` (status_key=1)
+
+---
+
+### 4. Crear generador de datos masivos OLTP
+
+**Archivo:** `scripts/generate_oltp_data.py` **(NUEVO)**
+
+Script que debe generar datos tanto para PostgreSQL como para MongoDB:
+
+- **500+ pedidos** con detalles (líneas de pedido) distribuidos en 6–12 meses de historia
+- **200+ reservas** distribuidas en el mismo período
+- **10+ usuarios** adicionales
+- **8–10 restaurantes** en distintas ciudades (San José, Alajuela, Cartago, Heredia, Escazú)
+- Variar horas del día (8:00–22:00) para que `v_horarios_pico` tenga datos útiles
+- Incluir estados variados (pendiente, completado, cancelado, etc.)
+
+---
+
+### 5. Verificar `dim_date` poblada
+
+El Spark job `etl_to_star.py` construye `dim_date` a partir de las fechas de pedidos y reservas. Con el generador masivo (paso 4) esto se resuelve automáticamente. Sin datos históricos suficientes, `dim_date` tendrá 1 sola fila y los joins temporales no funcionarán.
+
+---
+
+### 6. Verificar ruta de scripts dentro de contenedores — ✅ Resuelto
+
+Se descubrió que `hive-server` en `docker-compose.yml` **no tenía volumen montado** para los scripts de warehouse. Se agregó:
+```yaml
+volumes:
+  - ./warehouse:/opt/warehouse:ro
+```
+Ahora los scripts están disponibles en `/opt/warehouse/init_hive.sh` y `/opt/warehouse/init_olap_views.sh`. El executionPlan.md fue actualizado con las rutas correctas.
+
+---
+
+### Impacto en código Go — ✅ Ninguno
+
+Revisión exhaustiva de cada archivo Go que toca la tabla `restaurantes`:
+
+| Archivo | Línea | ¿Menciona `ciudad`? |
+|---|---|---|
+| `models/models.go` (struct `Restaurant`) | 16–23 | ❌ No |
+| `handlers/restaurant.go` (CreateRestaurant) | 29–34 | ❌ No |
+| `repository/interface.go` (RestaurantRepository) | 20–24 | ❌ No |
+| `repository/postgres/restaurant.go` (List) | 99–100 | ❌ No — `SELECT id, nombre, direccion, ...` |
+| `repository/postgres/restaurant.go` (GetByID) | 121–123 | ❌ No — `SELECT id, nombre, direccion, ...` |
+| `repository/postgres/restaurant.go` (Create) | 132–136 | ❌ No — `INSERT (nombre, direccion, ...)` |
+| `repository/mongo/restaurant.go` (List) | 127–148 | ❌ No — solo accede a campos del modelo |
+| `repository/mongo/restaurant.go` (GetByID) | 150–164 | ❌ No |
+| `repository/mongo/restaurant.go` (Create) | 166–203 | ❌ No |
+| `scripts/generate_geo.py` (va directo a BD) | 138–203 | ❌ No — `SELECT id, nombre, direccion` |
+
+Todas las queries SQL en Go usan columnas explícitas (nunca `SELECT *`). Los scripts Python que leen `ciudad` (`export_data.py`, `setup_dashboards.py`) van directo a la BD sin pasar por la API de Go.
+
+---
+
 ## Progreso
 
 | Área | Estado |
@@ -450,3 +551,9 @@
 | Rutas de Entrega (generate_geo, TSP greedy, Cypher ShortestPath, endpoint Go) | ✅ Completado |
 | Pruebas y Validaciones OLAP (scripts/verify_*.py/.sh con 20+ checks) | ✅ Completado |
 | Entregables (código, DAG, notebooks, dashboards, PDF) | ⬜ Pendiente |
+| Agregar `ciudad` a `restaurantes` (init.sql + initMongo.js) | ✅ Completado |
+| Corregir mapeo estados de pedido en Warehouse | ✅ Completado |
+| Corregir mapeo estados de reserva en Warehouse | ✅ Completado |
+| Crear generador de datos masivos `generate_oltp_data.py` | ✅ Completado |
+| Verificar ruta de scripts init_hive / init_olap_views en contenedores | ✅ Completado |
+| Ejecutar plan completo (executionPlan.md) | ⬜ Pendiente |

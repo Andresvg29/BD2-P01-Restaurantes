@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS restaurantes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nombre VARCHAR(150) NOT NULL,
     direccion TEXT NOT NULL,
+    ciudad VARCHAR(100) DEFAULT '',
     telefono VARCHAR(20),
     id_administrador UUID NOT NULL,
     capacidad_total INT NOT NULL DEFAULT 50,
@@ -143,18 +144,18 @@ BEGIN
     -- ======================================================
     
     -- Restaurante 1: La Fonda Criolla (Comida típica costarricense) - San José
-    INSERT INTO restaurantes (id, nombre, direccion, telefono, id_administrador, capacidad_total)
-    VALUES (uuid_generate_v4(), 'La Fonda Criolla', 'Avenida Central, entre calles 2 y 4, Frente al Parque Central, San José', '+506 2256-7890', admin_sj, 80)
+    INSERT INTO restaurantes (id, nombre, direccion, ciudad, telefono, id_administrador, capacidad_total)
+    VALUES (uuid_generate_v4(), 'La Fonda Criolla', 'Avenida Central, entre calles 2 y 4, Frente al Parque Central, San José', 'San José', '+506 2256-7890', admin_sj, 80)
     RETURNING id INTO rest_sj;
     
     -- Restaurante 2: Antojos Ticos (Comida típica con fusión) - Cartago
-    INSERT INTO restaurantes (id, nombre, direccion, telefono, id_administrador, capacidad_total)
-    VALUES (uuid_generate_v4(), 'Antojos Ticos Fusión', 'Barrio Los Ángeles, 200 metros norte de la Basílica, Cartago', '+506 2551-3245', admin_cartago, 60)
+    INSERT INTO restaurantes (id, nombre, direccion, ciudad, telefono, id_administrador, capacidad_total)
+    VALUES (uuid_generate_v4(), 'Antojos Ticos Fusión', 'Barrio Los Ángeles, 200 metros norte de la Basílica, Cartago', 'Cartago', '+506 2551-3245', admin_cartago, 60)
     RETURNING id INTO rest_cartago;
     
     -- Restaurante 3: Umami House (Comida asiática) - Heredia
-    INSERT INTO restaurantes (id, nombre, direccion, telefono, id_administrador, capacidad_total)
-    VALUES (uuid_generate_v4(), 'Umami House', 'San Joaquín de Flores, costado oeste del Mall Heredia, Heredia', '+506 2262-9876', admin_heredia, 70)
+    INSERT INTO restaurantes (id, nombre, direccion, ciudad, telefono, id_administrador, capacidad_total)
+    VALUES (uuid_generate_v4(), 'Umami House', 'San Joaquín de Flores, costado oeste del Mall Heredia, Heredia', 'Heredia', '+506 2262-9876', admin_heredia, 70)
     RETURNING id INTO rest_heredia;
     
     -- ======================================================

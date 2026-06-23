@@ -53,9 +53,9 @@ safeInsertMany(db.usuarios, [
 
 // 4. Restaurantes
 safeInsertMany(db.restaurantes, [
-    { _id: "rest_sj_lafonda_001", nombre: "La Fonda Criolla", direccion: "Avenida Central, San José", telefono: "+506 2256-7890", id_administrador: "admin_sj_001", capacidad_total: 80, fecha_creacion: new Date() },
-    { _id: "rest_cartago_antojos_002", nombre: "Antojos Ticos Fusión", direccion: "Barrio Los Ángeles, Cartago", telefono: "+506 2551-3245", id_administrador: "admin_cartago_002", capacidad_total: 60, fecha_creacion: new Date() },
-    { _id: "rest_heredia_umami_003", nombre: "Umami House", direccion: "San Joaquín, Heredia", telefono: "+506 2262-9876", id_administrador: "admin_heredia_003", capacidad_total: 70, fecha_creacion: new Date() }
+    { _id: "rest_sj_lafonda_001", nombre: "La Fonda Criolla", direccion: "Avenida Central, San José", ciudad: "San José", telefono: "+506 2256-7890", id_administrador: "admin_sj_001", capacidad_total: 80, fecha_creacion: new Date() },
+    { _id: "rest_cartago_antojos_002", nombre: "Antojos Ticos Fusión", direccion: "Barrio Los Ángeles, Cartago", ciudad: "Cartago", telefono: "+506 2551-3245", id_administrador: "admin_cartago_002", capacidad_total: 60, fecha_creacion: new Date() },
+    { _id: "rest_heredia_umami_003", nombre: "Umami House", direccion: "San Joaquín, Heredia", ciudad: "Heredia", telefono: "+506 2262-9876", id_administrador: "admin_heredia_003", capacidad_total: 70, fecha_creacion: new Date() }
 ]);
 
 // 5. Platos

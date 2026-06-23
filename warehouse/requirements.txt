@@ -1,2 +1,6 @@
 pymongo>=4.6
 psycopg2-binary>=2.9
+pyhive>=0.7.0
+thrift>=0.16.0
+thrift-sasl>=0.4.3
+requests>=2.31.0

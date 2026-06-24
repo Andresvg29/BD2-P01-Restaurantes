@@ -273,7 +273,7 @@ Las SQL queries de los virtual datasets referencian columnas que no existen en l
 | `estado_pedidos` | `s.descripcion` | `dim_order_status.status_name` | ❌ |
 | `actividad_ciudad` | `u.ciudad` | `dim_user` NO tiene `ciudad` | ❌ |
 | `actividad_ciudad` | `u.id_usuario` | `dim_user.user_id` | ❌ |
-| `ingresos_mes_cat` | `p.categoria`, `d.year`, `d.month` | correctas | ✅ |
+| `ingresos_mes_cat` | `fo.product_key` no existe en `fact_orders` | `fact_order_details` tiene `product_key`, no `fact_orders` | ❌ |
 
 Además, `dim_user` generada por el ETL no incluye datos de ubicación (solo `user_key`, `user_id`, `nombre`, `email`, `role_name`). La ciudad está únicamente en `dim_restaurant`.
 
@@ -290,9 +290,26 @@ Además, `dim_user` generada por el ETL no incluye datos de ubicación (solo `us
    GROUP BY r.ciudad
    ORDER BY total_gastado DESC
    ```
-3. Limpiar y recrear los 3 virtual datasets con SQL corregidas + columnas en `table_columns`
-4. Re-crear charts, dashboards y re-exportar a `spark/exports/`
+3. `ingresos_mes_cat`: cambiar `fo.product_key` por join a través de `fact_order_details`:
+   ```sql
+   SELECT CAST(d.year AS INT) as year, CAST(d.month AS INT) as month, p.categoria,
+          ROUND(SUM(fod.subtotal), 2) as total
+   FROM fact_orders fo
+   JOIN dim_date d ON fo.date_key = d.date_key
+   JOIN fact_order_details fod ON fod.order_id = fo.order_id
+   JOIN dim_product p ON fod.product_key = p.product_key
+   GROUP BY d.year, d.month, p.categoria
+   ORDER BY d.year, d.month, p.categoria
+   ```
+4. Limpiar y recrear los 3 virtual datasets con SQL corregidas + columnas en `table_columns`
+5. Re-crear charts, dashboards y re-exportar a `spark/exports/`
 
 **Archivos afectados:**
 - `spark/fix_dashboards_v2.py` — SQL queries incorrectas en líneas 63-76
+- `spark/create_dashboards.py` — idem (3 queries)
+- `spark/create_dashboards2.py` — idem
+- `spark/create_dashboards_flask.py` — idem
+- `spark/create_dashboards_v3.py` — idem
+- `spark/create_dashboards_v4.py` — idem
+- `spark/create_dashboards_v5.py` — idem
 - `spark/etl_to_star.py` — `dim_user` no incluye columna `ciudad` (podría agregarse si es necesario)

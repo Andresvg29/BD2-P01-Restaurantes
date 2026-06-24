@@ -216,7 +216,7 @@ BEGIN
         -- Crear pedido pendiente
         INSERT INTO pedidos (id, id_usuario, id_restaurante, es_recogida, id_estado_pedido, total)
         VALUES (uuid_generate_v4(), cliente_ejemplo, rest_sj, FALSE, 
-                (SELECT id FROM estados_pedido WHERE nombre_estado = 'pendiente'), 0)
+                (SELECT id FROM estados_pedido WHERE nombre_estado = 'cancelado'), 0)
         RETURNING id INTO pedido_id;
         
         -- Insertar detalles del pedido

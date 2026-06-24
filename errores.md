@@ -250,3 +250,49 @@ Formato final correcto:
 
 **Archivos afectados:**
 - `spark/fix_dashboards.py` — script de corrección
+
+---
+
+## [2026-06-23] - Spark Thrift Server: UNRESOLVED_COLUMN en virtual datasets de Superset
+
+**Error:**
+```
+A column or function parameter with name `s`.`descripcion` cannot be resolved.
+Did you mean one of the following?
+[`fo`.`hora`, `fo`.`month`, `fo`.`order_id`, `fo`.`user_key`, `fo`.`year`].
+```
+
+**Endpoint / Ruta:**
+Charts de Superset contra Spark Thrift Server (`hive://spark-master:10000/default`), virtual datasets de los dashboards.
+
+**Causa raíz:**
+Las SQL queries de los virtual datasets referencian columnas que no existen en las tablas Parquet reales del star schema:
+
+| Dataset | Columna usada | Columna real | Estado |
+|---|---|---|---|
+| `estado_pedidos` | `s.descripcion` | `dim_order_status.status_name` | ❌ |
+| `actividad_ciudad` | `u.ciudad` | `dim_user` NO tiene `ciudad` | ❌ |
+| `actividad_ciudad` | `u.id_usuario` | `dim_user.user_id` | ❌ |
+| `ingresos_mes_cat` | `p.categoria`, `d.year`, `d.month` | correctas | ✅ |
+
+Además, `dim_user` generada por el ETL no incluye datos de ubicación (solo `user_key`, `user_id`, `nombre`, `email`, `role_name`). La ciudad está únicamente en `dim_restaurant`.
+
+**Solución:**
+1. `estado_pedidos`: cambiar `s.descripcion` → `s.status_name`
+2. `actividad_ciudad`: reescribir query para unir `fact_orders → dim_restaurant` en vez de `fact_orders → dim_user`:
+   ```sql
+   SELECT r.ciudad,
+          COUNT(DISTINCT fo.order_id) as pedidos,
+          ROUND(SUM(fo.total_amount), 2) as total_gastado,
+          COUNT(DISTINCT fo.user_key) as clientes_unicos
+   FROM fact_orders fo
+   JOIN dim_restaurant r ON fo.restaurant_key = r.restaurant_key
+   GROUP BY r.ciudad
+   ORDER BY total_gastado DESC
+   ```
+3. Limpiar y recrear los 3 virtual datasets con SQL corregidas + columnas en `table_columns`
+4. Re-crear charts, dashboards y re-exportar a `spark/exports/`
+
+**Archivos afectados:**
+- `spark/fix_dashboards_v2.py` — SQL queries incorrectas en líneas 63-76
+- `spark/etl_to_star.py` — `dim_user` no incluye columna `ciudad` (podría agregarse si es necesario)

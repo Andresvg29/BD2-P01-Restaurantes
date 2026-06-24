@@ -91,7 +91,7 @@ def build_dim_date(spark, pedidos_df, reservas_df):
 
 
 def build_dim_order_status(spark):
-    data = [(1, "pendiente"), (2, "en_preparacion"), (3, "completado"), (4, "entregado")]
+    data = [(1, "completado"), (2, "cancelado")]
     return spark.createDataFrame(data, schema=["status_key", "status_name"])
 
 

@@ -36,9 +36,9 @@ def main():
             COUNT(DISTINCT fo.order_id) AS total_pedidos,
             ROUND(SUM(fo.total_amount), 2) AS ingresos_totales,
             COUNT(DISTINCT fo.user_key) AS usuarios_activos,
-            SUM(CASE WHEN dos.status_name IN ('Cancelado', 'Cancelled') THEN 1 ELSE 0 END) AS pedidos_cancelados,
+            SUM(CASE WHEN dos.status_name = 'cancelado' THEN 1 ELSE 0 END) AS pedidos_cancelados,
             ROUND(
-                SUM(CASE WHEN dos.status_name IN ('Cancelado', 'Cancelled') THEN 1 ELSE 0 END) * 100.0
+                SUM(CASE WHEN dos.status_name = 'cancelado' THEN 1 ELSE 0 END) * 100.0
                 / NULLIF(COUNT(DISTINCT fo.order_id), 0),
                 2
             ) AS tasa_cancelacion_pct,

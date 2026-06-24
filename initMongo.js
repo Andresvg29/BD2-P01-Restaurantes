@@ -37,10 +37,8 @@ safeInsertMany(db.estados_reserva, [
 ]);
 
 safeInsertMany(db.estados_pedido, [
-    { _id: 1, nombre_estado: "pendiente" },
-    { _id: 2, nombre_estado: "en_preparacion" },
-    { _id: 3, nombre_estado: "completado" },
-    { _id: 4, nombre_estado: "entregado" }
+    { _id: 1, nombre_estado: "completado" },
+    { _id: 2, nombre_estado: "cancelado" }
 ]);
 
 // 3. Usuarios

@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS detalles_pedido (
 
 INSERT INTO roles_usuario (id, nombre_rol) VALUES (1, 'administrador'), (2, 'cliente') ON CONFLICT DO NOTHING;
 INSERT INTO estados_reserva (nombre_estado) VALUES ('pendiente'), ('confirmada'), ('cancelada') ON CONFLICT DO NOTHING;
-INSERT INTO estados_pedido (nombre_estado) VALUES ('pendiente'), ('en_preparacion'), ('completado'), ('entregado') ON CONFLICT DO NOTHING;
+INSERT INTO estados_pedido (nombre_estado) VALUES ('completado'), ('cancelado') ON CONFLICT DO NOTHING;
 
 
 -- ======================================================

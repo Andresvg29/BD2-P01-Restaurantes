@@ -211,8 +211,8 @@ GROUP BY dos.status_name""",
         "name": "Tasa Cancelacion por Restaurante",
         "sql": """SELECT r.nombre AS restaurante,
   COUNT(*) AS total_pedidos,
-  SUM(CASE WHEN dos.status_name IN ('Cancelado', 'Cancelled') THEN 1 ELSE 0 END) AS cancelados,
-  ROUND(SUM(CASE WHEN dos.status_name IN ('Cancelado', 'Cancelled') THEN 1 ELSE 0 END) * 100.0
+  SUM(CASE WHEN dos.status_name = 'cancelado' THEN 1 ELSE 0 END) AS cancelados,
+  ROUND(SUM(CASE WHEN dos.status_name = 'cancelado' THEN 1 ELSE 0 END) * 100.0
     / NULLIF(COUNT(*), 0), 2) AS tasa_cancelacion_pct
 FROM fact_orders fo
 JOIN dim_restaurant r ON fo.restaurant_key = r.restaurant_key

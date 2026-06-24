@@ -45,7 +45,7 @@ NOMBRES_PLATOS = [
     ("Burrito grande", 5500),
 ]
 
-ESTADOS_PEDIDO_MAP = {1: "pendiente", 2: "en_preparacion", 3: "completado", 4: "entregado"}
+ESTADOS_PEDIDO_MAP = {1: "completado", 2: "cancelado"}
 ESTADOS_RESERVA_MAP = {1: "pendiente", 2: "confirmada", 3: "cancelada"}
 
 
@@ -197,7 +197,7 @@ def generate_postgres():
                 continue
 
             fecha = random_date(fecha_ini, fecha_fin)
-            estado = pick_weighted([(3, 50), (4, 25), (1, 15), (2, 10)])  # mayormente completados
+            estado = pick_weighted([(1, 75), (2, 25)])  # 75% completado, 25% cancelado
 
             # 1-5 items por pedido
             items = random.sample(platos_rest, min(random.randint(1, 5), len(platos_rest)))

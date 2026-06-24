@@ -443,21 +443,26 @@
 
 ---
 
-### 2. Corregir mapeo de estados de pedido en Warehouse
+### 2. Reducir estados de pedido de 4 a 2 (completado vs cancelado)
 
-**Archivo:** `spark/etl_to_star.py` — función `build_dim_order_status()`
+**Objetivo:** Simplificar el modelo unificando los 4 estados actuales (`pendiente`, `en_preparacion`, `completado`, `entregado`) en solo 2: `completado` y `cancelado`. Esto además arregla el bug donde `analisis_crecimiento.py` busca `'Cancelado'/'Cancelled'` que no existen en `dim_order_status`, resultando en tasa de cancelación siempre 0.
 
-| Actual (incorrecto) | Correcto |
-|---|---|
-| 1=Confirmada | 1=pendiente |
-| 2=Cancelada | 2=en_preparacion |
-| 3=Pendiente | 3=completado |
-| — | 4=entregado |
+**Archivos a modificar:**
 
-**Archivo:** `warehouse/ddl/dim_order_status.hql`
-- Sincronizar con los 4 estados reales del sistema
+| Capa | Archivo | Cambio |
+|---|---|---|
+| **OLTP** | `init.sql:93` | Seed: `('completado'), ('cancelado')` |
+| **Generación datos** | `scripts/generate_oltp_data.py:48,200` | Mapa `{1: "completado", 2: "cancelado"}` con pesos 75/25 |
+| **ETL** | `spark/etl_to_star.py:94` | `data = [(1, "completado"), (2, "cancelado")]` |
+| **Warehouse DDL** | `warehouse/ddl/dim_order_status.hql` | Solo `(1, 'completado'), (2, 'cancelado')` |
+| **Análisis** | `spark/analisis_crecimiento.py:39-44` | Cambiar `IN ('Cancelado','Cancelled')` → `= 'cancelado'` (arregla bug) |
+| **Dashboards Superset** | `superset/setup_dashboards.py:214` | Misma corrección de filtro de cancelación |
+| **Export dashboard** | `spark/exports/dashboard_estadisticas.json` | Re-exportar después del cambio |
 
-**Motivo:** Si no se corrige, los análisis de cancelación y estado (`v_tendencias_mensuales`, dashboard #3) mostrarán datos incorrectos.
+**Post-ejecución:**
+1. Recrear datos OLTP: `docker exec api python scripts/generate_oltp_data.py`
+2. Re-ejecutar ETL completo: extraer (`export_data.py`) → Spark (`etl_to_star.py`) → Hive
+3. Re-crear dashboards en Superset: `docker exec superset python /app/fix_dashboards_v2.py`
 
 ---
 
@@ -552,7 +557,7 @@ Todas las queries SQL en Go usan columnas explícitas (nunca `SELECT *`). Los sc
 | Pruebas y Validaciones OLAP (scripts/verify_*.py/.sh con 20+ checks) | ✅ Completado |
 | Entregables (código, DAG, notebooks, dashboards, PDF) | ⬜ Pendiente |
 | Agregar `ciudad` a `restaurantes` (init.sql + initMongo.js) | ✅ Completado |
-| Corregir mapeo estados de pedido en Warehouse | ✅ Completado |
+| Reducir estados de pedido de 4 a 2 (completado vs cancelado) | 🔄 Pendiente (7 archivos) |
 | Corregir mapeo estados de reserva en Warehouse | ✅ Completado |
 | Crear generador de datos masivos `generate_oltp_data.py` | ✅ Completado |
 | Verificar ruta de scripts init_hive / init_olap_views en contenedores | ✅ Completado |

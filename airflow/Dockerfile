@@ -1,10 +1,10 @@
-FROM apache/airflow:2.8
+FROM apache/airflow:2.8.4
 
 USER root
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        openjdk-11-jre-headless \
+        openjdk-17-jre-headless \
         curl \
         ca-certificates && \
     apt-get clean && \

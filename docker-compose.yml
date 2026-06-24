@@ -339,6 +339,8 @@ services:
     depends_on:
       hive-metastore-db:
         condition: service_healthy
+    volumes:
+      - ./hive/hive-site.xml:/opt/hive/conf/hive-site.xml
     networks:
       - default
 
@@ -363,6 +365,7 @@ services:
       - "${HIVE_PORT}:${HIVE_PORT}"
     volumes:
       - ./warehouse:/opt/warehouse:ro
+      - ./hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
     depends_on:
       hive-metastore:
         condition: service_started
@@ -373,57 +376,51 @@ services:
 
   #Spark
   spark-master:
-    image: bitnami/spark:3.5
+    image: apache/spark:3.5.0
     container_name: spark-master
     hostname: spark-master
     restart: always
+    working_dir: /opt/spark
     environment:
-      SPARK_MODE: master
-      SPARK_RPC_AUTHENTICATION_ENABLED: "no"
-      SPARK_RPC_ENCRYPTION_ENABLED: "no"
-      SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED: "no"
-      SPARK_SSL_ENABLED: "no"
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_MASTER_HOST: spark-master
     ports:
       - "8083:8080"
       - "7077:7077"
     volumes:
-      - ./spark/hive-site.xml:/opt/bitnami/spark/conf/hive-site.xml:ro
-      - ./spark/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf:ro
+      - ./spark/hive-site.xml:/opt/spark/conf/hive-site.xml:ro
+      - ./spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
       - ./spark:/opt/scripts:ro
       - ./warehouse/etl/staging:/opt/staging:ro
-      - ./spark/output:/opt/bitnami/spark/output
+      - ./spark/output:/opt/spark/output
+    command: ["bin/spark-class", "org.apache.spark.deploy.master.Master"]
     healthcheck:
-      test: ["CMD", "spark-submit", "--version"]
+      test: ["CMD", "/opt/spark/bin/spark-submit", "--version"]
       interval: 15s
       timeout: 10s
-      retries: 5
+      retries: 10
     networks:
       - default
 
   spark-worker:
-    image: bitnami/spark:3.5
+    image: apache/spark:3.5.0
     restart: always
+    working_dir: /opt/spark
     depends_on:
       - spark-master
     environment:
-      SPARK_MODE: worker
-      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_NO_DAEMONIZE: "true"
       SPARK_WORKER_MEMORY: 2G
       SPARK_WORKER_CORES: 2
-      SPARK_RPC_AUTHENTICATION_ENABLED: "no"
-      SPARK_RPC_ENCRYPTION_ENABLED: "no"
-      SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED: "no"
-      SPARK_SSL_ENABLED: "no"
     volumes:
-      - ./spark/hive-site.xml:/opt/bitnami/spark/conf/hive-site.xml:ro
-      - ./spark/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf:ro
+      - ./spark/hive-site.xml:/opt/spark/conf/hive-site.xml:ro
+      - ./spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
       - ./spark:/opt/scripts:ro
       - ./warehouse/etl/staging:/opt/staging:ro
-      - ./spark/output:/opt/bitnami/spark/output
+      - ./spark/output:/opt/spark/output
+    command: ["bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
     networks:
       - default
-    deploy:
-      replicas: 2
 
   #Superset metadata DB
   superset-db:
@@ -446,7 +443,9 @@ services:
 
   #Superset init (one-shot)
   superset-init:
-    image: apache/superset:4.1.1
+    build:
+      context: ./superset
+      dockerfile: Dockerfile.superset
     container_name: superset-init
     command: bash /app/init_superset.sh
     environment:
@@ -536,6 +535,7 @@ services:
       dockerfile: Dockerfile
     container_name: airflow-webserver
     restart: always
+    command: airflow webserver
     ports:
       - "8085:8080"
     depends_on:
@@ -657,7 +657,7 @@ services:
       NEO4J_dbms_memory_heap_max__size: 1G
     volumes:
       - neo4j_data:/data
-      - ./neo4j/staging:/var/lib/neo4j/import:ro
+      - ./neo4j/staging:/var/lib/neo4j/import
     healthcheck:
       test: ["CMD-SHELL", "cypher-shell -u neo4j -p password 'RETURN 1' || exit 1"]
       interval: 15s

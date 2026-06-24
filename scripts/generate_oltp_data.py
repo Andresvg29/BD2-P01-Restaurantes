@@ -96,7 +96,7 @@ def generate_postgres():
     rest_existentes = {row[1]: row[0] for row in cur.fetchall()}
     print(f"Restaurantes existentes: {len(rest_existentes)}")
 
-    cur.execute("SELECT id, nombre FROM usuarios WHERE id_rol = 2")
+    cur.execute("SELECT id, email FROM usuarios WHERE id_rol = 2")
     clientes_existentes = {row[1]: row[0] for row in cur.fetchall()}
     print(f"Clientes existentes: {len(clientes_existentes)}")
 
@@ -162,6 +162,10 @@ def generate_postgres():
         ]
         for nombre in nombres:
             email = nombre.lower().replace(" ", ".") + "@email.com"
+            if email in clientes_existentes:
+                print(f"  Usuario '{nombre}' ya existe, saltando.")
+                nuevos_clientes_ids.append(clientes_existentes[email])
+                continue
             keycloak_id = "kc_gen_" + nombre.split()[0].lower() + str(random.randint(100, 999))
             cur.execute(
                 """INSERT INTO usuarios (nombre, email, keycloak_id, id_rol)
@@ -171,7 +175,7 @@ def generate_postgres():
             uid = cur.fetchone()[0]
             nuevos_clientes_ids.append(uid)
         conn.commit()
-        todos_clientes = clientes_existentes.values() + nuevos_clientes_ids
+        todos_clientes = list(clientes_existentes.values()) + nuevos_clientes_ids
         print(f"  Creados {len(nuevos_clientes_ids)} nuevos clientes")
 
         # ── Recargar restaurantes completos ────────────────────────────────

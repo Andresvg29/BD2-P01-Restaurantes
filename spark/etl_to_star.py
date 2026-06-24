@@ -139,22 +139,23 @@ def build_fact_orders(spark, pedidos_df, detalles_df, dim_date, user_map, rest_m
 def build_fact_order_details(spark, detalles_df, pedidos_df, product_map):
     base = detalles_df.select(
         F.col("id").alias("detail_id"),
-        "id_pedido", "id_plato",
+        F.col("id_pedido").alias("order_id"),
+        F.col("id_plato").alias("product_id"),
         F.col("cantidad").cast("int").alias("quantity"),
         F.col("precio").cast("decimal(10,2)").alias("unit_price"),
     )
     result = base.withColumn("subtotal", F.col("quantity") * F.col("unit_price"))
+    pm = product_map.withColumnRenamed("product_id", "pm_product_id")
     result = result.join(
-        F.broadcast(product_map), result["id_plato"] == product_map["product_id"], "left"
-    ).drop("id_plato", "product_id")
-    # Get year/month from parent order
+        F.broadcast(pm), result["product_id"] == pm["pm_product_id"], "left"
+    ).drop("product_id", "pm_product_id")
     order_dates = pedidos_df.select(
         F.col("id").alias("oid"),
         F.year("fecha_creacion").alias("year"),
         F.month("fecha_creacion").alias("month"),
     )
-    result = result.join(order_dates, result["id_pedido"] == order_dates["oid"], "left") \
-        .drop("id_pedido", "oid")
+    result = result.join(order_dates, result["order_id"] == order_dates["oid"], "left") \
+        .drop("oid")
     return result.select("detail_id", "order_id", "product_key", "quantity", "unit_price", "subtotal", "year", "month")
 
 

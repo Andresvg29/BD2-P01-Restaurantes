@@ -10,7 +10,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 import os
 
-OUTPUT_DIR = "/opt/bitnami/spark/output/crecimiento"
+OUTPUT_DIR = "/opt/spark/output/crecimiento"
 
 
 def create_spark():

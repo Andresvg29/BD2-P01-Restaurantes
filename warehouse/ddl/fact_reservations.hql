@@ -10,4 +10,5 @@ PARTITIONED BY (year INT, month INT)
 ROW FORMAT DELIMITED
 FIELDS TERMINATED BY ','
 STORED AS TEXTFILE
+LOCATION 'hdfs://hadoop-namenode:9000/user/hive/warehouse/fact_reservations'
 TBLPROPERTIES ("skip.header.line.count"="1");

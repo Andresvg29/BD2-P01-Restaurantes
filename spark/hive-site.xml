@@ -6,7 +6,7 @@
   </property>
   <property>
     <name>hive.metastore.warehouse.dir</name>
-    <value>/user/hive/warehouse</value>
+    <value>hdfs://hadoop-namenode:9000/user/hive/warehouse</value>
   </property>
   <property>
     <name>hive.exec.dynamic.partition</name>

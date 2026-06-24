@@ -172,7 +172,7 @@ def generate_postgres():
             ":END_ID(Location)": loc_id,
         })
         cur.execute(
-            "UPDATE restaurantes SET ubicacion = row_to_json(row(%s, %s)::ubicacion_type) WHERE id = %s",
+            "UPDATE restaurantes SET ubicacion = jsonb_build_object('lat', %s, 'lon', %s) WHERE id = %s",
             (lat, lon, doc["id"])
         )
 

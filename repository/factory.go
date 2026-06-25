@@ -17,7 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Repos agrupa todos los repositorios listos para inyectar en los handlers.
+// Repos groups all initialized repositories ready to inject into handlers.
 type Repos struct {
 	User        UserRepository
 	Restaurant  RestaurantRepository
@@ -28,9 +28,9 @@ type Repos struct {
 	Neo4j       *Neo4jClient
 }
 
-// NewRepos crea los repositorios según DB_ENGINE ("postgres" o "mongodb").
-// También inicializa Redis (si ENABLE_REDIS=true) y Elasticsearch.
-// Devuelve un closure cleanup para liberar recursos al finalizar.
+// NewRepos creates repositories based on DB_ENGINE ("postgres" or "mongodb").
+// Also initializes Redis (if ENABLE_REDIS=true) and Elasticsearch.
+// Returns a cleanup closure to release resources on shutdown.
 func NewRepos() (*Repos, func(), error) {
 	engine := os.Getenv("DB_ENGINE")
 	if engine == "" {
@@ -41,7 +41,7 @@ func NewRepos() (*Repos, func(), error) {
 	var redisErr error
 	enableRedis := os.Getenv("ENABLE_REDIS")
 	if enableRedis == "" {
-		enableRedis = "true" // por defecto habilitado
+		enableRedis = "true" // enabled by default
 	}
 
 	if enableRedis == "true" {
@@ -53,7 +53,7 @@ func NewRepos() (*Repos, func(), error) {
 			log.Printf("Redis conectado exitosamente")
 		}
 	}
-	// Neo4j (graceful degradation: si no contesta, se usa nil)
+	// Neo4j (graceful degradation: if it does not respond, nil is used)
 	var neo4jClient *Neo4jClient
 	neo4jClient, neo4jErr := NewNeo4jClient()
 	if neo4jErr != nil {

@@ -16,14 +16,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// RoundTripFunc permite mockear el transporte del cliente de ES
+// RoundTripFunc allows mocking the ES client transport
 type RoundTripFunc func(req *http.Request) *http.Response
 
 func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req), nil
 }
 
-// Helper para crear un cliente de ES mockeado
+// Helper to create a mocked ES client
 func createMockESClient(body string, status int) *esapi.Client {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -55,8 +55,8 @@ func TestSearchProducts(t *testing.T) {
 		assert.Contains(t, w.Body.String(), "Debe proporcionar un término de búsqueda")
 	})
 
-	t.Run("Búsqueda exitosa con resultados", func(t *testing.T) {
-		// Simulación de respuesta de Elasticsearch con un "Gallo Pinto"
+	t.Run("Successful search with results", func(t *testing.T) {
+		// Simulate Elasticsearch response with a "Gallo Pinto"
 		esResponse := `{
 			"hits": {
 				"total": { "value": 1 },
@@ -74,7 +74,7 @@ func TestSearchProducts(t *testing.T) {
 			}
 		}`
 
-		// Sustituimos temporalmente el cliente global
+		// Temporarily replace the global client
 		oldClient := elasticsearch.ESClient
 		elasticsearch.ESClient = createMockESClient(esResponse, http.StatusOK)
 		defer func() { elasticsearch.ESClient = oldClient }()
@@ -126,14 +126,14 @@ func TestReindexSearch(t *testing.T) {
 	mockMenuRepo := new(mocks.MockMenuRepository)
 
 	t.Run("Reindexación completa exitosa", func(t *testing.T) {
-		// 1. Setup Datos del Repo
+		// 1. Setup repo data
 		platos := []models.MenuItem{
 			{ID: "1", Nombre: "Olla de Carne"},
 		}
 		mockMenuRepo.On("List").Return(platos, nil).Once()
 
-		// 2. Mock de ES para la creación del índice (Bulk o Index)
-		// En ReindexSearch se llama a ESClient por cada plato
+		// 2. Mock ES for index creation (Bulk or Index)
+		// ReindexSearch calls ESClient for each dish
 		esResponse := `{"result": "created"}`
 		oldClient := elasticsearch.ESClient
 		elasticsearch.ESClient = createMockESClient(esResponse, http.StatusOK)

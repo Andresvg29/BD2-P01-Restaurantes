@@ -9,9 +9,9 @@ import (
 	esapi "github.com/elastic/go-elasticsearch/v8"
 )
 
-// SetupMockClient crea un servidor mock de Elasticsearch y reemplaza el cliente global
-// Retorna una función de cleanup que debe llamarse con defer
-// Esta función está disponible para ser usada desde otros paquetes en pruebas
+// SetupMockClient creates a mock Elasticsearch server and replaces the global client
+// Returns a cleanup function that must be called with defer
+// This function is available for use from other packages in tests
 func SetupMockClient(t *testing.T) func() {
 	t.Helper()
 
@@ -21,14 +21,14 @@ func SetupMockClient(t *testing.T) func() {
 
 		var response map[string]interface{}
 
-		// Simular respuestas según el endpoint
+		// Simulate responses based on endpoint
 		switch {
 		case r.Method == "HEAD" && r.URL.Path == "/platos":
-			// Verificar existencia del índice
+			// Check index existence
 			w.WriteHeader(http.StatusOK)
 			return
 		case r.Method == "PUT" && r.URL.Path == "/platos":
-			// Crear índice
+			// Create index
 			response = map[string]interface{}{
 				"acknowledged":        true,
 				"shards_acknowledged": true,
@@ -48,7 +48,7 @@ func SetupMockClient(t *testing.T) func() {
 				"result": "deleted",
 			}
 		case r.Method == "POST" && r.URL.Path == "/platos/_search":
-			// Búsqueda
+			// Search
 			response = map[string]interface{}{
 				"hits": map[string]interface{}{
 					"total": map[string]interface{}{"value": 0},

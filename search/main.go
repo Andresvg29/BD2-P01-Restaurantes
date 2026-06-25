@@ -15,7 +15,7 @@ import (
 func main() {
 	_ = godotenv.Load()
 
-	// elasticSearch
+	// elasticsearch
 	esUrl := os.Getenv("ELASTICSEARCH_URL")
 	elasticsearch.InitClient(esUrl)
 	log.Println("ElasticSearch conectado")
@@ -31,7 +31,7 @@ func main() {
 	// router
 	router := gin.Default()
 
-	// rutas de busqueda
+	// search routes
 	search := router.Group("/search")
 	{
 		search.GET("/products", handlers.SearchProducts)
@@ -43,7 +43,7 @@ func main() {
 	if port == "" {
 		port = "8001"
 	}
-	log.Printf("Microservicio de busqueda en http://0.0.0.0:%s", port)
+	log.Printf("Search microservice on http://0.0.0.0:%s", port)
 	if err := router.Run(":" + port); err != nil {
 		log.Fatal(err)
 	}

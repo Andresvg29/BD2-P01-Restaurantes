@@ -204,7 +204,7 @@ func TestCreateMenu_OK(t *testing.T) {
 		},
 	}
 
-	// Mock restaurante
+	// Mock restaurant
 	mockRestRepo.On("GetByID", "r-123").
 		Return(&models.Restaurant{
 			ID:              "r-123",
@@ -269,7 +269,7 @@ func TestCreateMenu_NotAdmin(t *testing.T) {
 
 	r := setupRouter()
 	r.POST("/menus", func(c *gin.Context) {
-		c.Set("user_id", "user-123") // no es el admin del restaurante
+		c.Set("user_id", "user-123") // not the restaurant admin
 		handlers.CreateMenu(mockMenu, mockRest)(c)
 	})
 
@@ -317,11 +317,11 @@ func TestUpdateMenu_OK(t *testing.T) {
 		EstaDisponible: true,
 	}
 
-	// Mock autorización
+	// Mock authorization
 	mockMenuRepo.On("GetAdminID", "p-123").
 		Return("user-123", nil)
 
-	// Mock update con los 6 parámetros reales
+	// Mock update with the 6 actual parameters
 	mockMenuRepo.On(
 		"Update",
 		"p-123",

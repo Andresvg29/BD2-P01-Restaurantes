@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Login autentica al usuario contra Keycloak y devuelve el JWT
+// Login authenticates the user against Keycloak and returns the JWT
 func Login(kc keycloak.ClientInterface) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -37,7 +37,7 @@ func Login(kc keycloak.ClientInterface) gin.HandlerFunc {
 	}
 }
 
-// crea el usuario en Keycloak y guarda referencia en la BD
+// creates the user in Keycloak and saves reference in the DB
 func RegisterUser(kc keycloak.ClientInterface, users repository.UserRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -50,7 +50,7 @@ func RegisterUser(kc keycloak.ClientInterface, users repository.UserRepository) 
 			respondError(c, http.StatusBadRequest, err.Error())
 			return
 		}
-		// crear en Keycloak
+		// create in Keycloak
 		keycloakID, err := kc.RegisterUser(context.Background(), req.Nombre, req.Apellido, req.Email, req.Password)
 		if err != nil {
 			respondError(c, http.StatusConflict, err.Error())
@@ -59,7 +59,7 @@ func RegisterUser(kc keycloak.ClientInterface, users repository.UserRepository) 
 
 		// sincronizar en la BD local
 		if err := users.UpsertFromToken(keycloakID, req.Nombre, req.Email, false); err != nil {
-			// el usuario existe en Keycloak aunque falle la BD local
+			// user exists in Keycloak even if local DB fails
 			respondJSON(c, http.StatusCreated, gin.H{
 				"id":      keycloakID,
 				"message": "Usuario creado (sincronizacion BD pendiente)",

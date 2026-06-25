@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// skipIfNoRedis salta el test si Redis no está disponible
+// skipIfNoRedis skips the test if Redis is not available
 func skipIfNoRedis(t *testing.T) *RedisClient {
 	t.Helper()
 	client, err := NewRedisClient()
@@ -20,15 +20,6 @@ func skipIfNoRedis(t *testing.T) *RedisClient {
 		t.Skip("Redis no disponible, saltando test de integración")
 	}
 	return client
-}
-
-func TestCacheKeyConstants(t *testing.T) {
-	assert.Equal(t, CacheKey("restaurants:list"), KeyRestaurantList)
-	assert.NotEmpty(t, string(KeyRestaurantByID))
-	assert.NotEmpty(t, string(KeyMenuByRestaurant))
-	assert.NotEmpty(t, string(KeyUserByID))
-	assert.NotEmpty(t, string(KeyOrderByID))
-	assert.Equal(t, 15*time.Minute, CacheDuration)
 }
 
 func TestRedisConnection(t *testing.T) {

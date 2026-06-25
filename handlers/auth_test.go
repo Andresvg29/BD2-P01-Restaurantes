@@ -17,13 +17,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// helper: crea un router de prueba con gin en modo test
+// helper: creates a test router with gin in test mode
 func setupRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	return gin.New()
 }
 
-// helper: serializa body a JSON y crea un request HTTP
+// helper: serializes body to JSON and creates an HTTP request
 func newJSONRequest(method, url string, body interface{}) *http.Request {
 	b, _ := json.Marshal(body)
 	req, _ := http.NewRequest(method, url, bytes.NewBuffer(b))
@@ -31,7 +31,7 @@ func newJSONRequest(method, url string, body interface{}) *http.Request {
 	return req
 }
 
-// helper: inyecta user_id en el contexto de gin (simula middleware de auth)
+// helper: injects user_id into the gin context (simulates auth middleware)
 func withUserID(c *gin.Context, userID string) {
 	c.Set("user_id", userID)
 }
@@ -194,15 +194,15 @@ func TestDeleteUser_DBError(t *testing.T) {
 }
 
 // ── RegisterUser ──────────────────────────────────────────────────────────────
-// Login y RegisterUser dependen de keycloak.Client que no es una interfaz,
-// por lo que se prueba únicamente la validación del body (sin instanciar Keycloak)
+// Login and RegisterUser depend on keycloak.Client which is not an interface,
+// so only the body validation is tested (without instantiating Keycloak)
 
 func TestRegisterUser_BadBody(t *testing.T) {
-	// body vacío → ShouldBindJSON falla porque nombre, email y password son required
+	// empty body → ShouldBindJSON fails because nombre, email, and password are required
 	mockUsers := new(mocks.MockUserRepository)
 
 	r := setupRouter()
-	// pasamos nil como keycloak.Client — nunca llega a usarlo porque falla el bind
+	// pass nil as keycloak.Client — never reaches it because the bind fails first
 	r.POST("/auth/register", handlers.RegisterUser(nil, mockUsers))
 
 	w := httptest.NewRecorder()
@@ -234,7 +234,7 @@ func TestRegisterUser_MissingFields(t *testing.T) {
 
 func TestLogin_BadBody(t *testing.T) {
 	r := setupRouter()
-	// nil como keycloak.Client — falla el bind antes de usarlo
+	// nil as keycloak.Client — bind fails before reaching it
 	r.POST("/auth/login", handlers.Login(nil))
 
 	w := httptest.NewRecorder()

@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-// User representa un usuario autenticado vía Keycloak con referencia local en BD.
+// User represents an authenticated user via Keycloak with a local DB reference.
 type User struct {
 	ID            string    `json:"id" bson:"_id,omitempty"`
 	Nombre        string    `json:"nombre" bson:"nombre"`
@@ -12,7 +12,7 @@ type User struct {
 	FechaCreacion time.Time `json:"fecha_creacion" bson:"fecha_creacion"`
 }
 
-// Restaurant representa un restaurante con sus datos de contacto y administrador.
+// Restaurant represents a restaurant with its contact details and administrator.
 type Restaurant struct {
 	ID              string `json:"id" bson:"_id,omitempty"`
 	Nombre          string `json:"nombre" bson:"nombre"`
@@ -22,7 +22,7 @@ type Restaurant struct {
 	CapacidadTotal  int    `json:"capacidad_total" bson:"capacidad_total"`
 }
 
-// MenuItem es un plato individual dentro del menú de un restaurante.
+// MenuItem is an individual dish within a restaurant's menu.
 type MenuItem struct {
 	ID             string  `json:"id" bson:"_id,omitempty"`
 	IdRestaurante  string  `json:"id_restaurante" bson:"id_restaurante"`
@@ -33,7 +33,7 @@ type MenuItem struct {
 	Categoria      string  `json:"categoria" bson:"categoria"`
 }
 
-// Reservation representa una reserva realizada por un usuario en un restaurante.
+// Reservation represents a reservation made by a user at a restaurant.
 type Reservation struct {
 	ID               string    `json:"id" bson:"_id,omitempty"`
 	IdUsuario        string    `json:"id_usuario" bson:"id_usuario"`
@@ -44,7 +44,7 @@ type Reservation struct {
 	NombreEstado     string    `json:"nombre_estado" bson:"nombre_estado"`
 }
 
-// Order representa un pedido realizado por un usuario en un restaurante.
+// Order represents an order placed by a user at a restaurant.
 type Order struct {
 	ID             string        `json:"id" bson:"_id,omitempty"`
 	IdUsuario      string        `json:"id_usuario" bson:"id_usuario"`
@@ -55,7 +55,7 @@ type Order struct {
 	Detalles       []OrderDetail `json:"detalles" bson:"detalles"`
 }
 
-// OrderDetail contiene la información de un plato dentro de un pedido.
+// OrderDetail contains information about a dish within an order.
 type OrderDetail struct {
 	ID       string  `json:"id" bson:"_id,omitempty"`
 	IdPlato  string  `json:"id_plato" bson:"id_plato"`
@@ -63,13 +63,13 @@ type OrderDetail struct {
 	Precio   float64 `json:"precio" bson:"precio"`
 }
 
-// OrderDetailRequest es la estructura usada en el body al crear un pedido.
+// OrderDetailRequest is the structure used in the body when creating an order.
 type OrderDetailRequest struct {
 	IdPlato  string `json:"id_plato"  binding:"required"`
 	Cantidad int    `json:"cantidad"  binding:"required,gt=0"`
 }
 
-// Location representa una ubicación geográfica (nodo en Neo4j).
+// Location represents a geographic location (node in Neo4j).
 type Location struct {
 	ID      string  `json:"id"`
 	Lat     float64 `json:"lat"`
@@ -85,7 +85,7 @@ type RouteStep struct {
 	Orden     int     `json:"orden"`
 }
 
-// RouteResponse es la respuesta del endpoint de rutas de entrega.
+// RouteResponse is the response from the delivery route endpoint.
 type RouteResponse struct {
 	Ruta           []RouteStep `json:"ruta"`
 	DistanciaTotal float64     `json:"distancia_total_km"`

@@ -416,7 +416,7 @@ func TestMenuCreate_OK(t *testing.T) {
 }
 
 func TestMenuCreate_DefaultDescription(t *testing.T) {
-	// cuando descripcion es vacía debe usar "Producto sin descripcion"
+	// when descripcion is empty it should use "Producto sin descripcion"
 	db, mock := newMockDB(t)
 	defer db.Close()
 
@@ -588,7 +588,7 @@ func TestReservationCreate_OK(t *testing.T) {
 	mock.ExpectQuery(`SELECT id FROM estados_reserva WHERE nombre_estado`).
 		WillReturnRows(stateRows)
 
-	// insert reserva
+	// insert reservation
 	resRows := sqlmock.NewRows([]string{"id"}).AddRow("res-1")
 	mock.ExpectQuery(`INSERT INTO reservas`).
 		WithArgs("user-1", "r-1", fecha, 4, 1).
@@ -741,13 +741,13 @@ func TestOrderCreate_OK(t *testing.T) {
 
 	mock.ExpectBegin()
 
-	// insert pedido
+	// insert order
 	orderRows := sqlmock.NewRows([]string{"id"}).AddRow("order-1")
 	mock.ExpectQuery(`INSERT INTO pedidos`).
 		WithArgs("user-1", "r-1", false, 1).
 		WillReturnRows(orderRows)
 
-	// precio del plato
+	// dish price
 	precioRows := sqlmock.NewRows([]string{"precio"}).AddRow(5000.0)
 	mock.ExpectQuery(`SELECT precio FROM platos WHERE id`).
 		WithArgs("p-1", "r-1").

@@ -1,6 +1,6 @@
 package handlers
 
-//este handlers pertecene al microservicio de busqueda, independiente de la bd y se usa con ES unicamente
+// This handler belongs to the search microservice, independent of the DB and uses ES only
 
 import (
 	"context"
@@ -23,7 +23,7 @@ func SearchProducts(c *gin.Context) {
 		return
 	}
 
-	//busqueda difusa
+	// fuzzy search
 	esQuery := map[string]interface{}{
 		"query": map[string]interface{}{
 			"multi_match": map[string]interface{}{
@@ -54,7 +54,7 @@ func SearchByCategory(c *gin.Context) {
 }
 
 // POST /search/reindex
-// recibe un repo y devuelve un handler para reindexar todo el contenido de la BD en ES
+// receives a repo and returns a handler to reindex all DB content in ES
 func ReindexSearch(menuRepo repository.MenuRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		platos, err := menuRepo.List()
@@ -73,7 +73,7 @@ func ReindexSearch(menuRepo repository.MenuRepository) gin.HandlerFunc {
 	}
 }
 
-// func auxiliar para ejecutar la busqueda y parsear resultados
+// helper function to execute search and parse results
 func performSearch(c *gin.Context, query map[string]interface{}) {
 	var buf strings.Builder
 	if err := json.NewEncoder(&buf).Encode(query); err != nil {

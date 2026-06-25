@@ -10,12 +10,12 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-// Neo4jClient encapsula la conexión a Neo4j (driver Bolt).
+// Neo4jClient encapsulates the connection to Neo4j (Bolt driver).
 type Neo4jClient struct {
 	Driver neo4j.DriverWithContext
 }
 
-// NewNeo4jClient crea una nueva conexión a Neo4j.
+// NewNeo4jClient creates a new connection to Neo4j.
 func NewNeo4jClient() (*Neo4jClient, error) {
 	uri := getEnv("NEO4J_URI", "bolt://neo4j:7687")
 	user := getEnv("NEO4J_USER", "neo4j")
@@ -37,14 +37,14 @@ func NewNeo4jClient() (*Neo4jClient, error) {
 	return &Neo4jClient{Driver: driver}, nil
 }
 
-// Close cierra la conexión a Neo4j.
+// Close closes the connection to Neo4j.
 func (c *Neo4jClient) Close() {
 	if c.Driver != nil {
 		c.Driver.Close(context.Background())
 	}
 }
 
-// GetAllLocations retorna todas las ubicaciones del grafo.
+// GetAllLocations returns all locations from the graph.
 func (c *Neo4jClient) GetAllLocations(ctx context.Context) ([]models.Location, error) {
 	session := c.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
 	defer session.Close(ctx)
@@ -73,7 +73,7 @@ func (c *Neo4jClient) GetAllLocations(ctx context.Context) ([]models.Location, e
 	return locations, result.Err()
 }
 
-// GetLocationByRestaurant retorna la ubicación de un restaurante.
+// GetLocationByRestaurant returns the location of a restaurant.
 func (c *Neo4jClient) GetLocationByRestaurant(ctx context.Context, restaurantID string) (*models.Location, error) {
 	locID := "loc_" + restaurantID
 	session := c.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
@@ -101,7 +101,7 @@ func (c *Neo4jClient) GetLocationByRestaurant(ctx context.Context, restaurantID 
 	return nil, fmt.Errorf("ubicacion no encontrada para restaurante %s", restaurantID)
 }
 
-// GetLocationByOrder retorna la ubicación del restaurante asociado a una orden.
+// GetLocationByOrder returns the location of the restaurant associated with an order.
 func (c *Neo4jClient) GetLocationByOrder(ctx context.Context, orderID string) (*models.Location, error) {
 	session := c.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
 	defer session.Close(ctx)
@@ -130,8 +130,8 @@ func (c *Neo4jClient) GetLocationByOrder(ctx context.Context, orderID string) (*
 	return nil, fmt.Errorf("ubicacion no encontrada para orden %s", orderID)
 }
 
-// GetShortestPath calcula el camino más corto entre dos ubicaciones en el grafo de rutas.
-// Retorna la secuencia de ubicaciones y la distancia total en km.
+// GetShortestPath calculates the shortest path between two locations in the routes graph.
+// Returns the sequence of locations and the total distance in km.
 func (c *Neo4jClient) GetShortestPath(ctx context.Context, origenID, destinoID string) ([]models.Location, float64, error) {
 	session := c.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
 	defer session.Close(ctx)

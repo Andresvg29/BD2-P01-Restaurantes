@@ -35,14 +35,14 @@ func GetDeliveryRoute(neo4j *repository.Neo4jClient, restaurants repository.Rest
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		// Obtener ubicación origen (restaurante)
+		// Get origin location (restaurant)
 		origen, err := neo4j.GetLocationByRestaurant(ctx, desde)
 		if err != nil {
 			respondError(c, http.StatusNotFound, "Restaurante no encontrado o sin ubicación")
 			return
 		}
 
-		// Obtener ubicación destino (cliente vía order_id)
+		// Get destination location (client via order_id)
 		destino, err := neo4j.GetLocationByOrder(ctx, hasta)
 		if err != nil {
 			respondError(c, http.StatusNotFound, "Orden no encontrada o sin ubicación asociada")
@@ -72,8 +72,8 @@ func GetDeliveryRoute(neo4j *repository.Neo4jClient, restaurants repository.Rest
 	}
 }
 
-// nearestNeighborRoute implementa TSP greedy: desde el origen, visita siempre
-// la ubicación más cercana no visitada hasta llegar al destino.
+// nearestNeighborRoute implements greedy TSP: from the origin, always visits
+// the nearest unvisited location until reaching the destination.
 func nearestNeighborRoute(ctx context.Context, neo4j *repository.Neo4jClient, origen, destino *models.Location) ([]models.RouteStep, float64) {
 	allLocations, err := neo4j.GetAllLocations(ctx)
 	if err != nil || len(allLocations) == 0 {
@@ -90,11 +90,11 @@ func nearestNeighborRoute(ctx context.Context, neo4j *repository.Neo4jClient, or
 	for _, l := range allLocations {
 		locMap[l.ID] = l
 	}
-	// Asegurar que origen y destino están en el mapa
+	// Ensure origin and destination are in the map
 	locMap[origen.ID] = *origen
 	locMap[destino.ID] = *destino
 
-	// TSP greedy: desde origen, ir siempre a la más cercana no visitada
+	// TSP greedy: from origin, always go to the nearest unvisited location
 	visited := make(map[string]bool)
 	var ruta []models.RouteStep
 	current := origen.ID
@@ -146,7 +146,7 @@ func nearestNeighborRoute(ctx context.Context, neo4j *repository.Neo4jClient, or
 	return ruta, totalDist
 }
 
-// cypherRoute delega el cálculo de ruta a Neo4j ShortestPath.
+// cypherRoute delegates route calculation to Neo4j ShortestPath.
 func cypherRoute(ctx context.Context, neo4j *repository.Neo4jClient, origenID, destinoID string) ([]models.RouteStep, float64, error) {
 	locations, dist, err := neo4j.GetShortestPath(ctx, origenID, destinoID)
 	if err != nil {
@@ -165,8 +165,8 @@ func cypherRoute(ctx context.Context, neo4j *repository.Neo4jClient, origenID, d
 	return ruta, dist, nil
 }
 
-// assignZones agrupa ubicaciones en zonas de 2x2km (grilla).
-// Retorna un mapa de zona_id -> []Location
+// assignZones groups locations into 2x2km zones (grid).
+// Returns a map of zone_id -> []Location
 func assignZones(locations []models.Location) map[string][]models.Location {
 	zones := make(map[string][]models.Location)
 	for _, loc := range locations {
@@ -175,7 +175,7 @@ func assignZones(locations []models.Location) map[string][]models.Location {
 		zoneID := fmt.Sprintf("Z%d_%d", zoneX, zoneY)
 		zones[zoneID] = append(zones[zoneID], loc)
 	}
-	// Ordenar ubicaciones dentro de cada zona por dirección
+	// Sort locations within each zone by address
 	for zoneID := range zones {
 		sort.Slice(zones[zoneID], func(i, j int) bool {
 			return zones[zoneID][i].Address < zones[zoneID][j].Address
@@ -184,7 +184,7 @@ func assignZones(locations []models.Location) map[string][]models.Location {
 	return zones
 }
 
-// haversine calcula la distancia en km entre dos puntos geográficos.
+// haversine calculates the distance in km between two geographic points.
 func haversine(lat1, lon1, lat2, lon2 float64) float64 {
 	R := 6371.0
 	dLat := (lat2 - lat1) * math.Pi / 180

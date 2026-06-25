@@ -25,8 +25,8 @@ type cachedResponse struct {
 }
 
 type invalidationRule struct {
-	exact []string // keys exactas con placeholders :param opcionales
-	scans []string // prefijos para SCAN (ej: "GET:/menus")
+	exact []string // exact keys with optional :param placeholders
+	scans []string // SCAN prefixes (e.g.: "GET:/menus")
 }
 
 var defaultInvalidationRules = map[string]invalidationRule{
@@ -62,9 +62,9 @@ var defaultInvalidationRules = map[string]invalidationRule{
 	},
 }
 
-// RedisCacheMiddleware es un middleware Gin que cachea responses GET en Redis
-// e invalida la caché en operaciones de mutación (POST/PUT/DELETE).
-// Implementa graceful degradation: si Redis falla, la API sigue funcionando.
+// RedisCacheMiddleware is a Gin middleware that caches GET responses in Redis
+// and invalidates the cache on mutation operations (POST/PUT/DELETE).
+// Implements graceful degradation: if Redis fails, the API continues working.
 type RedisCacheMiddleware struct {
 	client            *redis.Client
 	duration          time.Duration
@@ -73,9 +73,9 @@ type RedisCacheMiddleware struct {
 	invalidationRules map[string]invalidationRule
 }
 
-// NewRedisCacheMiddleware crea un nuevo middleware de caché Redis.
-// Acepta opciones funcionales: WithDuration, WithTimeout, WithSkipPaths, WithInvalidationRules.
-// Si client es nil, el middleware opera en modo pass-through (no cachea).
+// NewRedisCacheMiddleware creates a new Redis cache middleware.
+// Accepts functional options: WithDuration, WithTimeout, WithSkipPaths, WithInvalidationRules.
+// If client is nil, the middleware operates in pass-through mode (does not cache).
 func NewRedisCacheMiddleware(client *redis.Client, opts ...Option) *RedisCacheMiddleware {
 	rules := make(map[string]invalidationRule, len(defaultInvalidationRules))
 	for k, v := range defaultInvalidationRules {
@@ -93,31 +93,31 @@ func NewRedisCacheMiddleware(client *redis.Client, opts ...Option) *RedisCacheMi
 	return m
 }
 
-// Option es una función de configuración para RedisCacheMiddleware.
+// Option is a configuration function for RedisCacheMiddleware.
 type Option func(*RedisCacheMiddleware)
 
-// WithDuration establece el TTL de las entradas en caché (defecto: 15 minutos).
+// WithDuration sets the TTL for cache entries (default: 15 minutes).
 func WithDuration(d time.Duration) Option {
 	return func(m *RedisCacheMiddleware) {
 		m.duration = d
 	}
 }
 
-// WithTimeout establece el timeout para operaciones Redis (defecto: 500ms).
+// WithTimeout sets the timeout for Redis operations (default: 500ms).
 func WithTimeout(d time.Duration) Option {
 	return func(m *RedisCacheMiddleware) {
 		m.timeout = d
 	}
 }
 
-// WithSkipPaths agrega rutas que NO se cachean (ej: "/auth/", "/users/").
+// WithSkipPaths adds paths that are NOT cached (e.g.: "/auth/", "/users/").
 func WithSkipPaths(paths ...string) Option {
 	return func(m *RedisCacheMiddleware) {
 		m.skipPaths = append(m.skipPaths, paths...)
 	}
 }
 
-// WithInvalidationRules sobrescribe las reglas de invalidación por defecto.
+// WithInvalidationRules overrides the default invalidation rules.
 func WithInvalidationRules(rules map[string]invalidationRule) Option {
 	return func(m *RedisCacheMiddleware) {
 		m.invalidationRules = rules
@@ -149,9 +149,9 @@ func (m *RedisCacheMiddleware) cacheKey(c *gin.Context) string {
 	return c.Request.Method + ":" + c.Request.URL.Path
 }
 
-// Middleware devuelve la función middleware de Gin.
-// En GET: verifica caché (cache hit → sirve respuesta, cache miss → ejecuta handler y almacena).
-// En POST/PUT/DELETE: ejecuta handler e invalida rutas relacionadas si response es 2xx.
+// Middleware returns the Gin middleware function.
+// On GET: checks cache (cache hit → serves response, cache miss → executes handler and stores).
+// On POST/PUT/DELETE: executes handler and invalidates related routes if response is 2xx.
 func (m *RedisCacheMiddleware) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method == http.MethodGet {

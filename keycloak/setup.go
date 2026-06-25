@@ -10,7 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// envuelve gocloak y expone las operaciones que necesita la app
+// wraps gocloak and exposes the operations the app needs
 type Client struct {
 	kc           gocloak.GoCloak
 	realm        string
@@ -18,7 +18,7 @@ type Client struct {
 	clientSecret string
 }
 
-// crea un cliente de Keycloak listo para usarse
+// creates a Keycloak client ready to use
 func New() *Client {
 	return &Client{
 		kc:           *gocloak.NewClient(os.Getenv("KEYCLOAK_URL")),
@@ -28,7 +28,7 @@ func New() *Client {
 	}
 }
 
-// verifica que el realm, cliente y roles existan en Keycloak sino los crea
+// verifies that realm, client, and roles exist in Keycloak, creates them if not
 func (c *Client) Setup(ctx context.Context) error {
 	token, err := c.kc.LoginAdmin(ctx,
 		os.Getenv("KEYCLOAK_ADMIN"),
@@ -121,7 +121,7 @@ func (c *Client) ensureRoles(ctx context.Context, adminToken string) error {
 	return nil
 }
 
-// LoginUser obtiene un JWT para el usuario con email/password
+// LoginUser obtains a JWT for the user with email/password
 func (c *Client) LoginUser(ctx context.Context, email, password string) (*gocloak.JWT, error) {
 	token, err := c.kc.Login(ctx, c.clientID, c.clientSecret, c.realm, email, password)
 	if err != nil {
@@ -130,7 +130,7 @@ func (c *Client) LoginUser(ctx context.Context, email, password string) (*gocloa
 	return token, nil
 }
 
-// RegisterUser crea el usuario en Keycloak y le asigna el rol 'cliente'
+// RegisterUser creates the user in Keycloak and assigns the 'cliente' role
 func (c *Client) RegisterUser(ctx context.Context, nombre, apellido, email, password string) (string, error) {
 	adminToken, err := c.kc.LoginAdmin(ctx,
 		os.Getenv("KEYCLOAK_ADMIN"),
@@ -163,7 +163,7 @@ func (c *Client) RegisterUser(ctx context.Context, nombre, apellido, email, pass
 		return "", fmt.Errorf("email ya registrado o datos invalidos")
 	}
 
-	// Asignar rol 'cliente'
+	// Assign 'cliente' role
 	if role, err := c.kc.GetRealmRole(ctx, adminToken.AccessToken, c.realm, "cliente"); err == nil {
 		c.kc.AddRealmRoleToUser(ctx, adminToken.AccessToken, c.realm, userID, []gocloak.Role{*role})
 	}
@@ -171,7 +171,7 @@ func (c *Client) RegisterUser(ctx context.Context, nombre, apellido, email, pass
 	return userID, nil
 }
 
-// verifica la firma del JWT con las claves publicas de Keycloak
+// verifies the JWT signature using Keycloak's public keys
 func (c *Client) DecodeToken(ctx context.Context, tokenString string) (userID, userName, userEmail string, roles []string, err error) {
 	jwtToken, mapClaims, err := c.kc.DecodeAccessToken(ctx, tokenString, c.realm)
 	if err != nil || !jwtToken.Valid {
@@ -181,15 +181,15 @@ func (c *Client) DecodeToken(ctx context.Context, tokenString string) (userID, u
 	claims := *mapClaims
 	roles = ExtractRoles(claims)
 
-	// "sub" es el UUID del usuario en Keycloak
+	// "sub" is the user's UUID in Keycloak
 	if sub, ok := claims["sub"].(string); ok {
 		userID = sub
 	}
-	// "preferred_username" es el nombre de usuario / email usado al registrar
+	// "preferred_username" is the username / email used during registration
 	if un, ok := claims["preferred_username"].(string); ok {
 		userName = un
 	}
-	// "email" puede no estar presente si el scope no lo incluye
+	// "email" may not be present if the scope does not include it
 	if em, ok := claims["email"].(string); ok {
 		userEmail = em
 	}
@@ -201,7 +201,7 @@ func (c *Client) DecodeToken(ctx context.Context, tokenString string) (userID, u
 	return userID, userName, userEmail, roles, nil
 }
 
-// lee los roles del realm desde los claims del JWT
+// reads the realm roles from the JWT claims
 func ExtractRoles(claims jwt.MapClaims) []string {
 	ra, ok := claims["realm_access"].(map[string]interface{})
 	if !ok {

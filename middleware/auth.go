@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Auth valida el JWT contra Keycloak e inyecta user_id y user_email en el contexto.
+// Auth validates the JWT against Keycloak and injects user_id and user_email into the context.
 func Auth(kc *keycloak.Client, users repository.UserRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -23,7 +23,7 @@ func Auth(kc *keycloak.Client, users repository.UserRepository) gin.HandlerFunc 
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		// DecodeAccessToken verifica la firma con las claves publicas de Keycloak
+		// DecodeAccessToken verifies the signature with Keycloak's public keys
 		userID, userName, userEmail, roles, err := kc.DecodeToken(context.Background(), tokenString)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido o expirado"})
@@ -38,7 +38,7 @@ func Auth(kc *keycloak.Client, users repository.UserRepository) gin.HandlerFunc 
 				break
 			}
 		}
-			// Sincronizar usuario con la BD local (crea si no existe aún)
+			// Sync user with the local DB (creates if it does not exist yet)
 		err = users.UpsertFromToken(userID, userName, userEmail, isAdmin)
 		if err != nil {
 			log.Printf("Error de sincronizacion: %v", err)
@@ -51,15 +51,15 @@ func Auth(kc *keycloak.Client, users repository.UserRepository) gin.HandlerFunc 
 			return
 		}
 
-		// Inyectar en el contexto para los handlers
+		// Inject into the context for the handlers
 		c.Set("user_id", userID)
 		c.Set("user_email", userEmail)
-		c.Set("user_role_id", user.IdRol) // roles del usuario
+		c.Set("user_role_id", user.IdRol) // user roles
 		c.Next()
 	}
 }
 
-// RequireRole verifica que el JWT contenga un rol específico en realm_access.roles
+// RequireRole checks that the JWT contains a specific role in realm_access.roles
 func RequireRole(role string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		roles, exists := c.Get("user_roles")
@@ -85,7 +85,7 @@ func RequireRole(role string) gin.HandlerFunc {
 	}
 }
 
-// RequireAdmin es middleware que verifica que el rol del usuario sea admin (id_rol == 1).
+// RequireAdmin is middleware that checks the user's role is admin (id_rol == 1).
 func RequireAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		roleID, exists := c.Get("user_role_id")
@@ -95,7 +95,7 @@ func RequireAdmin() gin.HandlerFunc {
 			return
 		}
 
-		// Verificamos si el ID de rol es 1 (Admin)
+		// Check if role ID is 1 (Admin)
 		roleIDInt, ok := roleID.(int)
 		if !ok {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Formato de rol inválido"})

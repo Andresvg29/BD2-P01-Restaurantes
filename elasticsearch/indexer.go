@@ -12,20 +12,20 @@ import (
 	"github.com/elastic/go-elasticsearch/v8/esutil"
 )
 
-// }agrega o actualiza un plato en el indice 'platos'
+// adds or updates a dish in the 'platos' index
 func IndexPlato(plato models.MenuItem) error {
-	// Convertimos el modelo a JSON
+	// Convert the model to JSON
 	data, err := json.Marshal(plato)
 	if err != nil {
 		return fmt.Errorf("error serializando plato: %s", err)
 	}
 
-	// eviamos el documento a ES usando el ID del plato como identificador del documento
+	// send the document to ES using the dish ID as the document identifier
 	res, err := ESClient.Index(
 		"platos",
 		bytes.NewReader(data),
 		ESClient.Index.WithDocumentID(plato.ID),
-		ESClient.Index.WithRefresh("true"), // cambio visible inmediatamente
+		ESClient.Index.WithRefresh("true"), // immediately visible
 	)
 	if err != nil {
 		return err
@@ -40,7 +40,7 @@ func IndexPlato(plato models.MenuItem) error {
 	return nil
 }
 
-// elimina un plato del indice cuando se borra de la BD
+// removes a dish from the index when it is deleted from the DB
 func DeletePlato(platoID string) error {
 	res, err := ESClient.Delete(
 		"platos",
@@ -60,9 +60,9 @@ func DeletePlato(platoID string) error {
 	return nil
 }
 
-// permite limpiar el indice y volver a cargar todo desde la base de datos
+// allows clearing the index and reloading everything from the database
 func ReindexAll(platos []models.MenuItem) error {
-	bi, err := esutil.NewBulkIndexer(esutil.BulkIndexerConfig{ //se usa para eficiencia si hay muchois datos
+	bi, err := esutil.NewBulkIndexer(esutil.BulkIndexerConfig{ // used for efficiency when there is a lot of data
 		Index:  "platos",
 		Client: ESClient,
 	})

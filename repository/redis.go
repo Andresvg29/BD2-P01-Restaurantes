@@ -9,16 +9,16 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// RedisClient encapsula la conexión a Redis
+// RedisClient encapsulates the connection to Redis
 type RedisClient struct {
 	*redis.Client
 }
 
-// NewRedisClient crea una nueva conexión a Redis
+// NewRedisClient creates a new connection to Redis
 func NewRedisClient() (*RedisClient, error) {
 	host := getEnv("REDIS_HOST", "localhost")
 	port := getEnv("REDIS_PORT", "6379")
-	password := os.Getenv("REDIS_PASSWORD") // opcional
+	password := os.Getenv("REDIS_PASSWORD") // optional
 
 	addr := fmt.Sprintf("%s:%s", host, port)
 
@@ -34,7 +34,7 @@ func NewRedisClient() (*RedisClient, error) {
 		WriteTimeout: 3 * time.Second,
 	})
 
-	// verificar conexión
+	// verify connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -45,23 +45,9 @@ func NewRedisClient() (*RedisClient, error) {
 	return &RedisClient{client}, nil
 }
 
-// Close cierra la conexión a Redis
+// Close closes the connection to Redis
 func (r *RedisClient) Close() error {
 	return r.Client.Close()
 }
 
-// CacheKey es un tipo para claves consistentes de caché en Redis.
-type CacheKey string
 
-const (
-	KeyRestaurantList   CacheKey      = "restaurants:list"
-	KeyRestaurantByID   CacheKey      = "restaurant:%s"
-	KeyMenuList         CacheKey      = "menus:list"
-	KeyMenuByRestaurant CacheKey      = "menus:restaurant:%s"
-	KeyMenuByID         CacheKey      = "menu:%s"
-	KeyUserByID         CacheKey      = "user:%s"
-	KeyUserByEmail      CacheKey      = "user:email:%s"
-	KeyReservationByID  CacheKey      = "reservation:%s"
-	KeyOrderByID        CacheKey      = "order:%s"
-	CacheDuration       time.Duration = 15 * time.Minute
-)

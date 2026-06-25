@@ -9,8 +9,8 @@ import (
 
 var ESClient *elasticsearch.Client
 
-// InitClient inicializa la conexión a Elasticsearch, verifica conectividad
-// y crea el índice "platos" con su mapping si no existe.
+// InitClient initializes the Elasticsearch connection, checks connectivity
+// and creates the "platos" index with its mapping if it does not exist.
 func InitClient(url string) (*elasticsearch.Client, error) {
 	cfg := elasticsearch.Config{
 		Addresses: []string{url},
@@ -21,7 +21,7 @@ func InitClient(url string) (*elasticsearch.Client, error) {
 		log.Fatalf("Error creando el cliente de Elasticsearch: %s", err)
 	}
 
-	// Verificar conexion
+	// Check connection
 	res, err := client.Info()
 	if err != nil {
 		log.Fatalf("Error conectando con Elasticsearch: %s", err)
@@ -31,7 +31,7 @@ func InitClient(url string) (*elasticsearch.Client, error) {
 	ESClient = client
 	log.Println("Conexión exitosa con Elasticsearch")
 
-	// crear el indice 'platos' con su mapping inicial
+	// create the 'platos' index with its initial mapping
 	createPlatosIndex(client)
 	return client, nil
 }
@@ -39,8 +39,8 @@ func InitClient(url string) (*elasticsearch.Client, error) {
 func createPlatosIndex(client *elasticsearch.Client) {
 	indexName := "platos"
 
-	//definición del Mapping campos buscables y sus tipos
-	//'text' para busqueda difusa y 'keyword' para filtros exactos
+	// mapping definition: searchable fields and their types
+	// 'text' for full-text search and 'keyword' for exact filters
 	mapping := `
 	{
 	  "settings": {
@@ -60,7 +60,7 @@ func createPlatosIndex(client *elasticsearch.Client) {
 	  }
 	}`
 
-	//verificar si el indice ya existe
+	// check if the index already exists
 	res, err := client.Indices.Exists([]string{indexName})
 	if err != nil {
 		log.Printf("Error verificando existencia del índice: %s", err)
@@ -68,7 +68,7 @@ func createPlatosIndex(client *elasticsearch.Client) {
 	}
 
 	if res.StatusCode == 404 {
-		//si no existe, lo creamos con el mapping
+		// if it does not exist, create it with the mapping
 		res, err = client.Indices.Create(
 			indexName,
 			client.Indices.Create.WithBody(strings.NewReader(mapping)),

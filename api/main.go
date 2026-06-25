@@ -26,7 +26,7 @@ func main() {
 	defer cleanup()
 	log.Printf("Motor de BD: %s", os.Getenv("DB_ENGINE"))
 
-	// ElasticSearch
+	// Elasticsearch
 	esUrl := os.Getenv("ELASTICSEARCH_URL")
 	elasticsearch.InitClient(esUrl)
 
@@ -39,10 +39,10 @@ func main() {
 	// router
 	router := gin.Default()
 
-	// Request logger middleware (request ID, method, path, status, duración)
+	// Request logger middleware (request ID, method, path, status, duration)
 	router.Use(middleware.RequestLogger())
 
-	// Redis cache middleware (cache GET públicos + invalida en mutaciones)
+	// Redis cache middleware (cache public GETs + invalidate on mutations)
 	cache := middleware.NewRedisCacheMiddleware(nil,
 		middleware.WithSkipPaths("/auth/", "/users/", "/orders/", "/reservations/"),
 	)
@@ -72,7 +72,7 @@ func main() {
 		adminOnly.GET("/delivery/routes", handlers.GetDeliveryRoute(repos.Neo4j, repos.Restaurant, repos.Order))
 	}
 
-	// Rutas protegidas para autenticados
+	// Protected routes for authenticated users
 	{
 		protected.GET("/users/me", handlers.GetCurrentUser(repos.User))
 		protected.PUT("/users/:id", handlers.UpdateUser(repos.User))

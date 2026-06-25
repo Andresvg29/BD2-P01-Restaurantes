@@ -637,7 +637,7 @@ services:
     volumes:
       - ./airflow/dags:/opt/airflow/dags:ro
       - ./airflow/config:/opt/airflow/config:ro
-      - ./warehouse:/opt/warehouse:ro
+      - ./warehouse:/opt/warehouse:rw
       - ./spark:/opt/scripts:ro
       - airflow_logs:/opt/airflow/logs
     networks:
@@ -659,6 +659,7 @@ services:
     volumes:
       - neo4j_data:/data
       - ./neo4j/staging:/var/lib/neo4j/import
+      - ./warehouse/etl/staging/neo4j:/var/lib/neo4j/warehouse-import
     healthcheck:
       test: ["CMD-SHELL", "cypher-shell -u neo4j -p password 'RETURN 1' || exit 1"]
       interval: 15s

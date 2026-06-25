@@ -3,11 +3,13 @@ etl_pipeline.py — DAG de ETL completo para restaurantes.
 
 Ejecución diaria:
   1. extract_data          → export_data.py (MongoDB/PostgreSQL → CSVs)
-  2. etl_to_star           → Spark: transformación a modelo estrella → Hive
-  3. analisis_tendencias   → Spark: tendencias de consumo (paralelo)
-  4. analisis_horarios     → Spark: horarios pico (paralelo)
-  5. analisis_crecimiento  → Spark: crecimiento mensual (paralelo)
-  6. reindex_elasticsearch → HTTP POST condicional (solo si platos.csv cambió)
+  2. export_neo4j          → export_neo4j.py (CSVs para Neo4j)
+  3. load_neo4j            → load_neo4j.py (carga en Neo4j via HTTP API)
+  4. etl_to_star           → Spark: transformación a modelo estrella → Hive
+  5. analisis_tendencias   → Spark: tendencias de consumo (paralelo)
+  6. analisis_horarios     → Spark: horarios pico (paralelo)
+  7. analisis_crecimiento  → Spark: crecimiento mensual (paralelo)
+  8. reindex_elasticsearch → HTTP POST condicional (solo si platos.csv cambió)
 """
 
 from airflow import DAG
@@ -46,6 +48,29 @@ with DAG(
     extract_data = BashOperator(
         task_id="extract_data",
         bash_command="python /opt/warehouse/etl/export_data.py",
+        cwd="/opt/warehouse/etl",
+    )
+
+    export_neo4j = BashOperator(
+        task_id="export_neo4j",
+        bash_command="python /opt/warehouse/etl/export_neo4j.py",
+        cwd="/opt/warehouse/etl",
+        env={
+            "OUTPUT_DIR": "staging/neo4j",
+            "DB_ENGINE": os.environ.get("DB_ENGINE", "postgres"),
+            "POSTGRES_HOST": os.environ.get("POSTGRES_HOST", "db"),
+            "POSTGRES_PORT": os.environ.get("POSTGRES_PORT", "5432"),
+            "POSTGRES_USER": os.environ.get("POSTGRES_USER", ""),
+            "POSTGRES_PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+            "POSTGRES_DB": os.environ.get("POSTGRES_DB", ""),
+            "MONGO_URI": os.environ.get("MONGO_URI", ""),
+            "MONGO_DB": os.environ.get("MONGO_DB", ""),
+        },
+    )
+
+    load_neo4j = BashOperator(
+        task_id="load_neo4j",
+        bash_command="python /opt/warehouse/etl/load_neo4j.py",
         cwd="/opt/warehouse/etl",
     )
 
@@ -144,7 +169,7 @@ with DAG(
         python_callable=_skip_reindex,
     )
 
-    extract_data >> etl_to_star
+    extract_data >> export_neo4j >> load_neo4j >> etl_to_star
     etl_to_star >> [analisis_tendencias, analisis_horarios, analisis_crecimiento]
     [analisis_tendencias, analisis_horarios, analisis_crecimiento] >> check_reindex
     check_reindex >> [reindex_elasticsearch, skip_reindex]

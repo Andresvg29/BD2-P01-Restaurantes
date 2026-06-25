@@ -33,6 +33,7 @@ REQUIRED_FILES=(
   "orders.csv" "reservations.csv"
   "placed.csv" "includes.csv" "at_order.csv"
   "made_reservation.csv" "at_reservation.csv"
+  "locations.csv" "located_at.csv" "roads.csv"
 )
 for f in "${REQUIRED_FILES[@]}"; do
   if [ ! -f "$STAGING_DIR/$f" ]; then

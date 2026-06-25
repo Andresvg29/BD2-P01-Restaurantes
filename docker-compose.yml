@@ -366,6 +366,7 @@ services:
     volumes:
       - ./warehouse:/opt/warehouse:ro
       - ./hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./hive/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
     depends_on:
       hive-metastore:
         condition: service_started

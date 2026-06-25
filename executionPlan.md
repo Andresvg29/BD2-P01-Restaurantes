@@ -217,6 +217,29 @@ db ──→ keycloak-db ──→ keycloak
 
 ---
 
+## Errores conocidos corregidos durante ejecución
+
+| # | Síntoma | Causa | Solución aplicada |
+|---|---------|-------|-------------------|
+| 1 | HiveServer2 no abre puerto 10000 | `hive-site.xml` sin `hive.metastore.uris` apuntando al metastore remoto | Agregar `<property><name>hive.metastore.uris</name><value>thrift://hive-metastore:9083</value></property>` en `hive/hive-site.xml` |
+| 2 | HiveServer2 no encuentra hive-site.xml | `hive-server` no montaba `hive/hive-site.xml` | Agregar volumen `- ./hive/hive-site.xml:/opt/hive/conf/hive-site.xml:ro` en `docker-compose.yml` para `hive-server` |
+| 3 | HiveServer2: `Permission denied: user=hive access=WRITE inode="/"` | HDFS raíz no escribe para user `hive` | `hdfs dfs -mkdir -p /user/hive/warehouse /tmp/hive && hdfs dfs -chmod -R 777 /user/hive /tmp /` y cambiar `hive.exec.scratchdir` a `/tmp/hive` y `hive.user.install.directory` a `/user/hive` |
+| 4 | HiveServer2 tarda ~5 min en iniciar | Tez + Hive 4.0.0 con modo local | Normal. Esperar ~5-7 min después del primer `docker-compose up -d hive-server` |
+| 5 | `generate_geo.py` falla con `UnicodeDecodeError` | Encoding del DSN en Windows | Ejecutar dentro de Docker: `docker run --rm --network bd2-p01-restaurantes_default -v "$PWD/scripts:/scripts" ... python:3.11-slim` |
+| 6 | `generate_geo.py` requiere columna `ubicacion` en PostgreSQL | No existía en schema inicial | `ALTER TABLE restaurantes ADD COLUMN ubicacion JSONB DEFAULT '{}'::jsonb;` |
+| 7 | `spark-submit` no encontrado | No está en PATH del contenedor | Usar ruta completa: `/opt/spark/bin/spark-submit` |
+| 8 | API container no tiene Python | Dockerfile Alpine multi-stage sin Python | Ejecutar scripts ETL desde contenedor Python externo con `--network bd2-p01-restaurantes_default` |
+| 9 | `curl` en PowerShell es alias de `Invoke-WebRequest` | Windows PowerShell | Usar `curl.exe` en lugar de `curl` |
+| 10 | `analisis_crecimiento.py` no encuentra tablas | Conflicto tablas Hive nativas vs Spark-managed | Ejecutar análisis directamente desde Hive beeline o recrear tablas como externas |
+| 11 | `dim_order_status` no existe en Hive | DDL `dim_order_status.hql` no llegó a montarse en `hive-server:/opt/warehouse/ddl/` | Ejecutar `init_hive.sh` corrigiendo montura o crear tabla manualmente con beeline |
+| 12 | `dim_order_status` datos corruptos (status_key 1 perdido) | `TBLPROPERTIES ("skip.header.line.count"="1")` en tabla poblada con `INSERT INTO VALUES` (no desde CSV con header) | Recrear tabla sin `skip.header.line.count`. Insertar con VALUES múltiples |
+| 13 | `dim_reservation_status` tabla vacía | DDL sin INSERT statements y con `skip.header.line.count="1"` | Agregar INSERT con los 3 status y quitar `skip.header.line.count` |
+| 14 | Superset: Error `400 CSRF token missing` en API REST | Flask-WTF CSRF protección activa en Superset 4.1.1 | Agregar `WTF_CSRF_ENABLED = False` en `superset/superset_config.py` |
+| 15 | Superset: Error `FAILED: SemanticException [Error 10025]: Line 1:40 Expression not in GROUP BY key` | Superset infiere nombres de columna incorrectos | Usar alias explícitos `AS` en SQL: `d.year AS year` en vez de `d.year` |
+| 16 | Superset: `granularity_sqla` causa `DATE_TRUNC` no soportado por Hive | Params de chart virtual contienen campo de granularidad | Remover `granularity_sqla`, `time_range`, `granularity` de los params del chart |
+| 17 | Superset: Error `Unknown field` en `columns` al crear dataset via API | API Superset 4.1.1 no acepta `columns` en payload POST `/api/v1/dataset/` | Remover `columns` del payload de creación de dataset |
+| 18 | Superset: Hive connection error `FAILED: ParseException line 1:31 cannot recognize input near 'SHOW' 'CATALOGS'` | Hive 4.0.0 no soporta `SHOW CATALOGS`; HiveEngineSpec lo invoca en `get_catalog_names()` | Parchear HiveEngineSpec: sobreescribir `get_catalog_names()`, `get_default_catalog()`, `get_schema_names()` y `get_default_schema()` para evitar el comando |
+
 ## Troubleshooting
 
 | Síntoma | Causa probable | Solución |
@@ -228,3 +251,5 @@ db ──→ keycloak-db ──→ keycloak
 | Neo4j no carga CSVs | Permisos en staging | Verificar montura `./neo4j/staging:/var/lib/neo4j/import:ro` |
 | ETL export falla con PostgreSQL | Falta columna `ciudad` | `ALTER TABLE restaurantes ADD COLUMN ciudad VARCHAR(100) DEFAULT '';` |
 | Puerto 80 ocupado | Otro servicio web | Cambiar en `docker-compose.yml` y `nginx/nginx.conf` |
+| spark-submit no encontrado | PATH incorrecto | Usar `/opt/spark/bin/spark-submit` en docker exec |
+| API no tiene Python | Alpine image | Usar contenedor python:3.11-slim con `--network` para ETL |

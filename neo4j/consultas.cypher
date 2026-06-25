@@ -16,11 +16,11 @@
 // con las combinaciones mas recurrentes.
 
 MATCH (p1:Product)<-[:INCLUDES]-(o:Order)-[:INCLUDES]->(p2:Product)
-WHERE p1 <> p2
+WHERE id(p1) < id(p2)
 RETURN p1.nombre AS producto_a,
        p2.nombre AS producto_b,
-       count(*) AS frecuencia
-ORDER BY frecuencia DESC
+       count(DISTINCT o) AS veces_juntos
+ORDER BY veces_juntos DESC
 LIMIT 5;
 
 
@@ -34,15 +34,19 @@ LIMIT 5;
 // Resultado esperado: pares (usuario A, usuario B, afinidad)
 // con mayor numero de coincidencias.
 
-MATCH (u1:User)-[:PLACED]->(:Order)-[:AT]->(r:Restaurant),
-      (u2:User)-[:PLACED]->(:Order)-[:AT]->(r)
+MATCH (u1:User)-[:PLACED]->(o1:Order)-[:AT]->(r:Restaurant),
+      (u2:User)-[:PLACED]->(o2:Order)-[:AT]->(r)
 WHERE u1 <> u2
-MATCH (u1)-[:PLACED]->(:Order)-[:INCLUDES]->(p:Product),
-      (u2)-[:PLACED]->(:Order)-[:INCLUDES]->(p)
+WITH u1, u2, count(DISTINCT r) AS restaurantes_compartidos
+OPTIONAL MATCH (u1)-[:PLACED]->(:Order)-[:INCLUDES]->(p:Product)<-[:INCLUDES]-(:Order)<-[:PLACED]-(u2)
+WITH u1, u2, restaurantes_compartidos, count(DISTINCT p) AS productos_compartidos
+WHERE restaurantes_compartidos > 0 OR productos_compartidos > 0
 RETURN u1.nombre AS usuario_a,
        u2.nombre AS usuario_b,
-       count(DISTINCT r) + count(DISTINCT p) AS afinidad
-ORDER BY afinidad DESC
+       restaurantes_compartidos,
+       productos_compartidos,
+       3 * restaurantes_compartidos + 1 * productos_compartidos AS afinidad_score
+ORDER BY afinidad_score DESC
 LIMIT 10;
 
 
@@ -55,18 +59,28 @@ LIMIT 10;
 // Nota: Requiere que existan nodos (:Location) y relaciones (:ROAD).
 // Si aun no se han generado, ejecutar primero el script de datos
 // geoespaciales (Seccion 6.1).
-// Parametros: $origen y $destino son location_id
-// Resultado esperado: secuencia de direcciones y distancia total.
-
-// Ejemplo con parametros:
-// :param origen => "loc-001";
-// :param destino => "loc-010";
+// Variante A usa parametros; Variante B usa nombre de restaurante.
+// -----------------------------------------------------------
+// Variante A — Camino minimo con parametros:
+//   :param origen => "loc_7faf45d6-aab8-42f1-a731-5ac11ab991ab";
+//   :param destino => "loc_13573677-b6fd-4710-b25a-7a647a29bc09";
 //
 // MATCH (a:Location {location_id: $origen}),
 //       (b:Location {location_id: $destino}),
 //       p = shortestPath((a)-[:ROAD*]-(b))
 // RETURN [n IN nodes(p) | n.address] AS ruta,
-//        reduce(acc = 0, r IN relationships(p) | acc + r.distance_km) AS distancia_total_km;
+//        reduce(acc = 0.0, r IN relationships(p) | acc + r.distance_km) AS distancia_total_km;
+
+// Variante B — Camino minimo desde un restaurante hacia todos los demas
+MATCH (r1:Restaurant {nombre: "La Fonda Criolla"})-[:LOCATED_AT]->(l1:Location),
+      (r2:Restaurant)-[:LOCATED_AT]->(l2:Location)
+WHERE r1 <> r2
+MATCH p = shortestPath((l1)-[:ROAD*]-(l2))
+RETURN r1.nombre AS origen,
+       r2.nombre AS destino,
+       [n IN nodes(p) | n.address] AS ruta,
+       reduce(acc = 0.0, r IN relationships(p) | acc + r.distance_km) AS distancia_km
+ORDER BY distancia_km ASC;
 
 
 // -----------------------------------------------------------

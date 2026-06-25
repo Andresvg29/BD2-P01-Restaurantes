@@ -63,12 +63,6 @@ func NewRepos() (*Repos, func(), error) {
 		log.Printf("Neo4j conectado exitosamente")
 	}
 
-	elasticURL := os.Getenv("ELASTICSEARCH_URL")
-	if elasticURL == "" {
-		elasticURL = "http://elasticsearch:9200"
-	}
-
-	esConn.InitClient(elasticURL)
 	elasticClient := esConn.ESClient
 	switch engine {
 	case "postgres":

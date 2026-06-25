@@ -38,8 +38,7 @@ func Auth(kc *keycloak.Client, users repository.UserRepository) gin.HandlerFunc 
 				break
 			}
 		}
-		log.Printf("Usuario %s detectado como Admin: %v", userID, isAdmin) // Agrega esto para debugear
-		// Sincronizar usuario con la BD local (crea si no existe aún)
+			// Sincronizar usuario con la BD local (crea si no existe aún)
 		err = users.UpsertFromToken(userID, userName, userEmail, isAdmin)
 		if err != nil {
 			log.Printf("Error de sincronizacion: %v", err)

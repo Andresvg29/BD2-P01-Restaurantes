@@ -49,54 +49,53 @@ fi
 echo ""
 echo "--- Check 1: Trigger manual del DAG ---"
 
+TRIGGER_ID="verify_$(date +%s)"
 set +e
-TRIGGER_OUTPUT=$($AIRFLOW_CLI dags trigger -r "verify_run_$(date +%s)" "$DAG_ID" 2>&1)
+$AIRFLOW_CLI dags trigger -r "$TRIGGER_ID" "$DAG_ID" 2>&1 > /dev/null
 RC=$?
 set -e
 
 if [ $RC -eq 0 ]; then
-  pass "DAG $DAG_ID trigger enviado"
-  echo "    Output: $TRIGGER_OUTPUT" | head -3
+  pass "DAG $DAG_ID trigger enviado (run_id: $TRIGGER_ID)"
 else
   fail "Error al trigger DAG $DAG_ID"
-  echo "    $TRIGGER_OUTPUT" | sed 's/^/    /'
+  echo "    (exit code $RC)"
 fi
 
-# Wait for the DAG run to complete, with a timeout
 echo ""
 echo "  Esperando a que el DAG run complete (timeout: ${MAX_WAIT}s)..."
 
-DAG_RUN_ID="manual__verify_run_$(date +%s)"
-# Actually we need to find the run ID from the trigger output
-# Format: Created <dag_run_type> <dag_id> with run_id <run_id>, ...
-
-# Better approach: poll the latest DAG run status
 WAIT_TIME=0
 COMPLETED=false
 while [ $WAIT_TIME -lt $MAX_WAIT ]; do
   set +e
-  LATEST_RUNS=$($AIRFLOW_CLI dags list-runs -d "$DAG_ID" --output json 2>&1 | \
-    python3 -c "import sys,json; data=json.load(sys.stdin); runs=[r for r in data if 'manual' in r.get('run_id','') or r.get('state') in ('running','queued')]; print(json.dumps(runs[0] if runs else {}))" 2>/dev/null)
+  STATE_JSON=$($AIRFLOW_CLI dags list-runs -d "$DAG_ID" --output json 2>/dev/null | \
+    python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for r in data:
+        if r.get('run_id') == '$TRIGGER_ID':
+            print(r.get('state', 'unknown'))
+            break
+    else:
+        print('not_found')
+except:
+    print('error')
+" 2>/dev/null)
   RC=$?
   set -e
 
-  if [ $RC -eq 0 ] && [ -n "$LATEST_RUNS" ] && [ "$LATEST_RUNS" != "{}" ]; then
-    STATE=$(echo "$LATEST_RUNS" | python3 -c "import sys,json; print(json.load(sys.stdin).get('state','unknown'))" 2>/dev/null)
-    RUN_ID=$(echo "$LATEST_RUNS" | python3 -c "import sys,json; print(json.load(sys.stdin).get('run_id',''))" 2>/dev/null)
-
-    if [ "$STATE" = "success" ]; then
-      echo "  ✓ DAG run $RUN_ID completado exitosamente (${WAIT_TIME}s)"
-      COMPLETED=true
-      break
-    elif [ "$STATE" = "failed" ]; then
-      fail "DAG run $RUN_ID falló"
-      COMPLETED=true
-      break
-    else
-      echo "    Estado: $STATE (${WAIT_TIME}s)..."
-    fi
+  if [ "$STATE_JSON" = "success" ]; then
+    echo "  ✓ DAG run $TRIGGER_ID completado exitosamente (${WAIT_TIME}s)"
+    COMPLETED=true
+    break
+  elif [ "$STATE_JSON" = "failed" ]; then
+    fail "DAG run $TRIGGER_ID falló"
+    COMPLETED=true
+    break
   else
-    echo "    Esperando DAG run (${WAIT_TIME}s)..."
+    echo "    Estado: $STATE_JSON (${WAIT_TIME}s)..."
   fi
 
   sleep $POLL_INTERVAL
@@ -107,66 +106,59 @@ if [ "$COMPLETED" = false ]; then
   fail "Timeout: DAG no completó en ${MAX_WAIT}s"
 fi
 
-# ── Check 2: Task logs sin errores ─────────────────────────
+# ── Check 2: Task states ────────────────────────────────────
 echo ""
-echo "--- Check 2: Verificación de task logs ---"
+echo "--- Check 2: Estados de tareas del último DAG run ---"
 
-TASKS=("extract_data" "etl_to_star" "analisis_tendencias" "analisis_horarios" "analisis_crecimiento")
+TASKS=("extract_data" "export_neo4j" "load_neo4j" "etl_to_star" "analisis_tendencias" "analisis_horarios" "analisis_crecimiento")
 
-# Get the latest DAG run execution date
-set +e
-EXEC_DATE=$($AIRFLOW_CLI dags list-runs -d "$DAG_ID" --output json 2>&1 | \
-  python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-manual = [r for r in data if 'manual' in r.get('run_id', '')]
-if manual:
-  print(manual[0].get('execution_date', ''))
-" 2>/dev/null)
-RC=$?
-set -e
-
-if [ -n "$EXEC_DATE" ] && [ "$EXEC_DATE" != "" ]; then
-  echo "  Execution date: $EXEC_DATE"
+if [ -n "$TRIGGER_ID" ] && [ "$COMPLETED" = true ]; then
+  echo "  DAG Run ID: $TRIGGER_ID"
+  echo "  Consultando estado de cada tarea..."
+  ALL_SUCCESS=true
   for TASK in "${TASKS[@]}"; do
     set +e
-    LOGS=$($AIRFLOW_CLI tasks logs -t "$TASK" "$DAG_ID" "$EXEC_DATE" 2>&1 | tail -20)
+    STATE=$($AIRFLOW_CLI tasks state "$DAG_ID" "$TASK" "$TRIGGER_ID" 2>&1)
     RC=$?
     set -e
 
-    if echo "$LOGS" | grep -qi "error\|exception\|traceback"; then
-      fail "Task $TASK tiene errores en logs"
-      echo "    Últimas líneas del log de $TASK:"
-      echo "$LOGS" | sed 's/^/    /'
+    if [ $RC -eq 0 ]; then
+      if [ "$STATE" = "success" ]; then
+        pass "Task $TASK: $STATE"
+      else
+        fail "Task $TASK: $STATE (no es success)"
+        ALL_SUCCESS=false
+      fi
     else
-      pass "Task $TASK logs limpios"
+      echo "    [INFO] $TASK: no encontrado ($STATE)"
     fi
   done
+  if [ "$ALL_SUCCESS" = true ]; then
+    pass "Todas las tareas en estado success"
+  fi
 else
-  echo "  ⚠ No se encontró execution date del DAG manual, saltando check de logs"
+  echo "  ⚠ No hay DAG run completado para verificar, saltando check de estados"
 fi
 
 # ── Check 3: Dependencias del DAG ──────────────────────────
 echo ""
 echo "--- Check 3: Validación de dependencias ---"
 
+# Validate task list via `airflow tasks list`
 set +e
-DAG_INFO=$($AIRFLOW_CLI dags info "$DAG_ID" 2>&1)
+DAG_TASKS=$($AIRFLOW_CLI tasks list "$DAG_ID" 2>&1)
 RC=$?
 set -e
 
-# Basic validation: check that task list includes all expected tasks
-if echo "$DAG_INFO" | grep -q "extract_data"; then
-  pass "DAG contiene task extract_data"
-else
-  fail "DAG no contiene extract_data"
-fi
-
-if echo "$DAG_INFO" | grep -q "etl_to_star"; then
-  pass "DAG contiene task etl_to_star"
-else
-  fail "DAG no contiene etl_to_star"
-fi
+ALL_TASKS=true
+for t in extract_data export_neo4j load_neo4j etl_to_star analisis_tendencias analisis_horarios analisis_crecimiento; do
+  if echo "$DAG_TASKS" | grep -q "$t"; then
+    pass "DAG contiene task $t"
+  else
+    fail "DAG no contiene $t"
+    ALL_TASKS=false
+  fi
+done
 
 # Validate dependency tree structure via `airflow tasks list` with dependencies
 set +e

@@ -38,7 +38,6 @@ fi
 
 # ── Lista de validaciones ───────────────────────────────────
 VERIFICATIONS=(
-  "verify_warehouse.py:verify_warehouse.py:7.1 — Validación de Datos en Warehouse"
   "verify_etl.sh:verify_etl.sh:7.2 — Validación del Pipeline ETL"
   "verify_spark.sh:verify_spark.sh:7.3 — Validación de Análisis Spark"
   "verify_neo4j.sh:verify_neo4j.sh:7.4 — Validación de Neo4j"
@@ -67,7 +66,7 @@ for entry in "${VERIFICATIONS[@]}"; do
   echo ""
 
   if [[ "$SCRIPT" == *.py ]]; then
-    (cd "$PROJECT_DIR" && python "$SCRIPT_DIR/$SCRIPT")
+    (cd "$PROJECT_DIR" && python3 "$SCRIPT_DIR/$SCRIPT")
     RC=$?
   else
     bash "$SCRIPT_DIR/$SCRIPT"

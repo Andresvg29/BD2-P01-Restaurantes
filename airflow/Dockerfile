@@ -18,6 +18,7 @@ RUN curl -fsSL "https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spa
 
 ENV SPARK_HOME=/opt/spark
 ENV PATH=$PATH:$SPARK_HOME/bin
+RUN mkdir -p /opt/spark/output && chmod 777 /opt/spark/output
 
 USER airflow
 

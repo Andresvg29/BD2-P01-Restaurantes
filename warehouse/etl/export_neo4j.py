@@ -28,6 +28,7 @@ def safe(val, default=""):
 
 def write_csv(filename, fieldnames, rows):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.chmod(OUTPUT_DIR, 0o755)
     path = os.path.join(OUTPUT_DIR, filename)
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)

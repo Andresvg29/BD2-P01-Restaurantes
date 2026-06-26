@@ -626,6 +626,7 @@ services:
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-cambiame_en_produccion}
       SPARK_HOME: /opt/spark
       PYSPARK_PYTHON: python3
+      HADOOP_USER_NAME: spark
       DB_ENGINE: ${DB_ENGINE}
       MONGO_URI: ${MONGO_URI}
       MONGO_DB: ${MONGO_DB}
@@ -639,6 +640,10 @@ services:
       - ./airflow/config:/opt/airflow/config:ro
       - ./warehouse:/opt/warehouse:rw
       - ./spark:/opt/scripts:ro
+      - ./spark/hive-site.xml:/opt/spark/conf/hive-site.xml:ro
+      - ./spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+      - ./warehouse/etl/staging:/opt/staging:rw
+      - /var/run/docker.sock:/var/run/docker.sock:rw
       - airflow_logs:/opt/airflow/logs
     networks:
       - default

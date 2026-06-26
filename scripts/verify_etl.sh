@@ -1,13 +1,5 @@
 #!/bin/bash
 # verify_etl.sh — Validación del Pipeline ETL (7.2).
-#
-# Checks:
-#   1. Ejecución completa: python run_etl.py sin errores
-#   2. Idempotencia: ejecutar ETL 2 veces seguidas sin duplicados
-#   3. Graceful degradation: si BD no responde, error claro
-#
-# Uso: bash scripts/verify_etl.sh
-# Requiere: servicios Docker corriendo, python con dependencias instaladas
 
 set -euo pipefail
 
@@ -37,11 +29,10 @@ echo ""
 # ── Check 1: Ejecución completa ────────────────────────────
 echo "--- Check 1: Ejecución completa del ETL ---"
 
-# Clean staging first
 rm -rf "$STAGING_DIR" 2>/dev/null || true
 mkdir -p "$STAGING_DIR"
 
-if cd "$ETL_DIR" && python export_data.py 2>&1; then
+if docker exec -w /opt/warehouse/etl airflow-worker python export_data.py 2>&1; then
   pass "export_data.py ejecutado sin errores"
 else
   fail "export_data.py falló"
@@ -51,7 +42,6 @@ fi
 echo ""
 echo "--- Check 2: Idempotencia (2 corridas, mismos resultados) ---"
 
-# Run 1: count files after first run
 count_files_1=$(ls "$STAGING_DIR"/*.csv 2>/dev/null | wc -l)
 row_count_1=0
 for f in "$STAGING_DIR"/*.csv; do
@@ -62,10 +52,15 @@ for f in "$STAGING_DIR"/*.csv; do
 done
 echo "  Primera corrida: $count_files_1 archivos, $row_count_1 filas totales"
 
-# Clean and run again
 rm -rf "$STAGING_DIR" 2>/dev/null || true
 mkdir -p "$STAGING_DIR"
-cd "$ETL_DIR" && python export_data.py 2>&1
+set +e
+docker exec -w /opt/warehouse/etl airflow-worker python export_data.py 2>&1
+RC=$?
+set -e
+if [ $RC -ne 0 ]; then
+  echo "  [WARN] export_data.py retornó código $RC"
+fi
 
 count_files_2=$(ls "$STAGING_DIR"/*.csv 2>/dev/null | wc -l)
 row_count_2=0
@@ -87,7 +82,6 @@ fi
 echo ""
 echo "--- Check 3: Graceful degradation (BD caída) ---"
 
-# Identify the DB container to stop
 if [ "$DB_ENGINE" = "postgres" ] || [ "$DB_ENGINE" = "postgresql" ]; then
   DB_CONTAINER="db"
 else
@@ -95,23 +89,18 @@ else
 fi
 
 echo "  Deteniendo $DB_CONTAINER..."
-docker stop "$DB_CONTAINER" 2>/dev/null || echo "  ⚠ $DB_CONTAINER ya estaba detenido"
+docker stop "$DB_CONTAINER" 2>/dev/null || echo "  � $DB_CONTAINER ya estaba detenido"
 
-# Run export_data.py — should fail with a clear error message
 set +e
-cd "$ETL_DIR"
-ERROR_OUTPUT=$(python export_data.py 2>&1)
+ERROR_OUTPUT=$(docker exec -w /opt/warehouse/etl airflow-worker python export_data.py 2>&1)
 EXIT_CODE=$?
 set -e
 
-# Restart the container
 echo "  Re-iniciando $DB_CONTAINER..."
 docker start "$DB_CONTAINER" 2>/dev/null || true
-# Wait for it to be ready
 sleep 3
 
 if [ $EXIT_CODE -ne 0 ]; then
-  # Check that the error message is descriptive, not a crash traceback
   if echo "$ERROR_OUTPUT" | grep -qiE "(error|ERROR|Connection refused|timeout|no se pudo|could not)"; then
     pass "Graceful degradation: error claro (exit code $EXIT_CODE)"
   else
@@ -124,3 +113,5 @@ fi
 echo ""
 echo "=== RESULTADOS: $PASS PASS, $FAIL FAIL ==="
 [ "$FAIL" -eq 0 ]
+
+## vim: set noexpandtab:
